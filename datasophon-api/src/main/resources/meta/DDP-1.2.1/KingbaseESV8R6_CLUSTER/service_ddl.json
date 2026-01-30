@@ -1,0 +1,242 @@
+{
+  "name": "KingbaseEScluster",
+  "label": "KingbaseEScluster",
+  "description": "国产数据库集群配置",
+  "version": "v8r6",
+  "sortNum": 25,
+  "dependencies": [],
+  "packageName": "KingbaseESV8R6.tar.gz",
+  "decompressPackageName": "KingbaseESV8R6",
+  "roles": [
+    {
+      "name": "Kingbase_cluster_primary",
+      "label": "Kingbase_cluster_primary",
+      "roleType": "master",
+      "cardinality": "1",
+      "sortNum": 1,
+      "logFile": "logs/kingbase_out.log",
+      "jmxPort": 1234,
+      "startRunner": {
+        "timeout": "600",
+        "program": "bin/control.sh",
+        "args": [
+		  "start",
+		  "primary"
+		]
+      },
+      "stopRunner": {
+        "timeout": "60",
+        "program": "bin/control.sh",
+        "args": [
+		  "stop",
+		  "primary"]
+      },
+      "statusRunner": {
+        "timeout": "60",
+        "program": "bin/control.sh",
+        "args": [
+		  "status",
+		  "primary"]
+      },
+	  "externalLink":{
+		  "name":"Kmonitor UI",
+		  "label":"Kmonitor UI",
+		  "url":"${host}:3001"
+      }
+	},
+	{
+	  "name":"Kingbase_cluster_standby",
+	  "label":"Kingbase_cluster_standby",
+	  "roleType":"master",
+      "cardinality": "1+",
+      "sortNum": 2,
+      "logFile": "logs/kingbase_out.log",
+      "jmxPort": 9155,
+      "startRunner": {
+        "timeout": "600",
+        "program": "bin/control.sh",
+        "args": [
+		  "start",
+		  "standby"]
+      },
+      "stopRunner": {
+        "timeout": "60",
+        "program": "bin/control.sh",
+        "args": [
+		  "stop",
+		  "standby"]
+      },
+      "statusRunner": {
+        "timeout": "60",
+        "program": "bin/control.sh",
+        "args": [
+		  "status",
+		  "standby"]
+      }
+	}
+  ],
+  "configWriter": {
+    "generators": [
+	
+      {
+        "filename": "install.conf",
+        "configFormat": "custom",
+        "outputDirectory": "conf",
+        "templateName": "Kingbase_cluster_install.ftl",
+        "includeParams": [
+		  "all_ip",
+          "install_dir",
+		  "db_user",
+          "db_password",
+          "db_port",
+		  "db_mode",
+		  "db_auth",
+		  "db_case_sensitive",
+          "encoding",
+          "locale",
+		  "data_directory"
+
+		  
+        ]
+      }
+		
+    ]
+  },
+  "parameters": [
+    {
+      "name": "all_ip",
+      "label": "kingbase集群配置所有的主机ip",
+      "description": "主机放在第一个位置,主机间使用空格隔开",
+      "required": true,
+      "configType":"map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false
+    },
+    {
+      "name": "install_dir",
+      "label": "下载目录",
+      "description": "路径",
+      "required": true,
+      "configType":"map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "/opt/datasophon/KingbaseES/Kingbase/cluster"
+    },
+    {
+      "name": "db_user",
+      "label": "用户名id",
+      "description": "id",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "system"
+    },
+	{
+      "name": "db_password",
+      "label": "密码",
+      "description": "Password",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "123456"
+    },
+    {
+      "name": "db_port",
+      "label": "api访问端口",
+      "description": "api访问端口",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "54321",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "54321"
+    },
+	{
+      "name": "db_mode",
+      "label": "数据库兼容模式",
+      "description": "DATABASE_MODE_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["oracle", "pg", "mysql"]
+    },
+	{
+      "name": "db_auth",
+      "label": "身份验证方法",
+      "description": "authentication method",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["scram-sha-256", "scram-sm3", "sm4", "md5"]
+    },
+	{
+      "name": "db_case_sensitive",
+      "label": "大小写敏感",
+      "description": "当兼容pgsql时不能为no，当兼容mysql时不能为yes",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["yes", "no"]
+    },
+	{
+      "name": "encoding",
+      "label": "字符编码格式",
+      "description": "encoding_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["UTF8", "GBK", "GB18030", "GB2312"],
+      "defaultvalue":"UTF8"
+    },
+    	{
+      "name": "locale",
+      "label": "语言编码格式",
+      "description": "locale_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["zh_CN.UTF-8", "en_US.UTF-8"],
+      "defaultValue":"zh_CN.UTF-8"
+    },    
+	{
+      "name": "data_directory",
+      "label": "数据存储目录",
+      "description": "路径",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "/opt/datasophon/KingbaseESV8R6/Kingbase/cluster/data"
+    }
+
+  ]
+}
+

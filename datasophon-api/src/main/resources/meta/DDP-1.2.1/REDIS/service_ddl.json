@@ -1,0 +1,194 @@
+{
+  "name": "REDIS",
+  "label": "REDIS",
+  "description": "交互式数据分析notebook",
+  "version": "7.2.3",
+  "sortNum": 37,
+  "dependencies": [],
+  "packageName": "redis-7.2.3.tar.gz",
+  "decompressPackageName": "redis-7.2.3",
+  "roles": [
+    {
+      "name": "RedisMaster",
+      "label": "RedisMaster",
+      "roleType": "master",
+      "cardinality": "1+",
+      "runAs": {},
+      "logFile": "cluster/log/cluster-master.log",
+      "startRunner": {
+        "timeout": "60",
+        "program": "control_redis.sh",
+        "args": [
+          "start",
+          "master"
+        ]
+      },
+      "stopRunner": {
+        "timeout": "600",
+        "program": "control_redis.sh",
+        "args": [
+          "stop",
+          "master"
+        ]
+      },
+      "statusRunner": {
+        "timeout": "60",
+        "program": "control_redis.sh",
+        "args": [
+          "status",
+          "master"
+        ]
+      }
+    },
+    {
+      "name": "RedisWorker",
+      "label": "RedisWorker",
+      "roleType": "worker",
+      "cardinality": "1+",
+      "runAs": {},
+      "logFile": "cluster/log/cluster-slave.log",
+      "startRunner": {
+        "timeout": "60",
+        "program": "control_redis.sh",
+        "args": [
+          "start",
+          "slave"
+        ]
+      },
+      "stopRunner": {
+        "timeout": "600",
+        "program": "control_redis.sh",
+        "args": [
+          "stop",
+          "slave"
+        ]
+      },
+      "statusRunner": {
+        "timeout": "60",
+        "program": "control_redis.sh",
+        "args": [
+          "status",
+          "slave"
+        ]
+      }
+    }
+  ],
+  "configWriter": {
+    "generators": [
+      {
+        "filename": "control_redis.sh",
+        "configFormat": "custom",
+        "outputDirectory": "",
+        "templateName": "redis-control.ftl",
+        "includeParams": [
+          "redisMasterPort",
+          "redisSlavePort"
+        ]
+      },
+      {
+        "filename": "redis-master.conf",
+        "configFormat": "custom",
+        "outputDirectory": "cluster/conf",
+        "templateName": "redis-master.ftl",
+        "includeParams": [
+          "redisMasterPort",
+          "custom.master.conf"
+        ]
+      },
+      {
+        "filename": "redis-slave.conf",
+        "configFormat": "custom",
+        "outputDirectory": "cluster/conf",
+        "templateName": "redis-slave.ftl",
+        "includeParams": [
+          "redisSlavePort",
+          "custom.slave.conf"
+        ]
+      },
+      {
+        "filename": "redis-cluster.sh",
+        "configFormat": "custom",
+        "outputDirectory": "",
+        "templateName": "redis-cluster.ftl",
+        "includeParams": [
+          "RedisMasterAddr",
+          "RedisSlaveAddr"
+        ]
+      }
+    ]
+  },
+  "parameters": [
+    {
+      "name": "redisMasterPort",
+      "label": "master节点端口号",
+      "description": "",
+      "configType": "map",
+      "required": true,
+      "type": "input",
+      "value": "7000",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "7000"
+    },
+    {
+      "name": "redisSlavePort",
+      "label": "worker节点端口号",
+      "description": "",
+      "configType": "map",
+      "required": true,
+      "type": "input",
+      "value": "7001",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "7001"
+    },
+    {
+      "name": "custom.master.conf",
+      "label": "自定义master配置",
+      "description": "自定义master配置",
+      "configType": "custom",
+      "required": false,
+      "type": "multipleWithKey",
+      "value": [],
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": ""
+    },
+    {
+      "name": "custom.slave.conf",
+      "label": "自定义worker配置",
+      "description": "自定义worker配置",
+      "configType": "custom",
+      "required": false,
+      "type": "multipleWithKey",
+      "value": [],
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": ""
+    },
+    {
+      "name": "RedisMasterAddr",
+      "label": "RedisMasterAddr",
+      "description": "",
+      "configType": "map",
+      "required": false,
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": true,
+      "defaultValue": ""
+    },
+    {
+      "name": "RedisSlaveAddr",
+      "label": "RedisSlaveAddr",
+      "description": "",
+      "configType": "map",
+      "required": false,
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": true,
+      "defaultValue": ""
+    }
+  ]
+}

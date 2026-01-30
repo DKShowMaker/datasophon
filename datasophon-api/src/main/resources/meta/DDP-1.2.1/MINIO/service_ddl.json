@@ -1,0 +1,124 @@
+{
+  "name": "MINIO",
+  "label": "MINIO",
+  "description": "s3对象存储",
+  "version": "8.4.3",
+  "sortNum": 22,
+  "dependencies": [],
+  "packageName": "minio-8.4.3.tar.gz",
+  "decompressPackageName": "minio-8.4.3",
+  "roles": [
+    {
+      "name": "MinioService",
+      "label": "MinioService",
+      "roleType": "master",
+      "cardinality": "1+",
+      "sortNum": 1,
+      "logFile": "minio.log",
+      "metricsPath": "/minio/prometheus/metrics",
+      "jmxPort": 11111,
+      "startRunner": {
+        "timeout": "60",
+        "program": "bin/start.sh",
+        "args": []
+      },
+      "stopRunner": {
+        "timeout": "60",
+        "program": "bin/stop.sh",
+        "args": []
+      },
+      "statusRunner": {
+        "timeout": "60",
+        "program": "bin/status.sh",
+        "args": []
+      },
+      "externalLink": {
+        "name": "minio Ui",
+        "label": "minio Ui",
+        "url": "http://${host}:${consolePort}"
+      }
+    }
+  ],
+  "configWriter": {
+    "generators": [
+      {
+        "filename": "start.sh",
+        "configFormat": "custom",
+        "outputDirectory": "bin",
+        "templateName": "minio-run.flt",
+        "includeParams": [
+          "MINIO_ACCESS_KEY",
+          "MINIO_SECRET_KEY",
+          "dataPaths",
+          "apiPort",
+          "consolePort"
+        ]
+      }
+    ]
+  },
+  "parameters": [
+    {
+      "name": "MINIO_ACCESS_KEY",
+      "label": "用户名",
+      "description": "用户名，长度最小是5个字符",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "minio"
+    },
+    {
+      "name": "MINIO_SECRET_KEY",
+      "label": "密码",
+      "description": "密码不能设置过于简单，不然minio会启动失败，长度最小是8个字符",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "Jd2019@123"
+    },
+    {
+      "name": "dataPaths",
+      "label": "集群配置文件目录",
+      "description": "集群配置文件目录，必须根据指定格式将各部署节点配置上，按空格分隔",
+      "configType": "map",
+      "required": true,
+      "separator": " ",
+      "type": "multiple",
+      "value": [
+        "http://{host}:{apiPort}/data/minio/data"
+      ],
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": ""
+    },
+    {
+      "name": "apiPort",
+      "label": "api访问端口",
+      "description": "api访问端口",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "9000",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "9000"
+    },
+    {
+      "name": "consolePort",
+      "label": "UI访问端口",
+      "description": "UI访问端口",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "9001",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "9001"
+    }
+  ]
+}

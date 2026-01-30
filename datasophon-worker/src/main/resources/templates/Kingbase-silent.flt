@@ -1,0 +1,46 @@
+
+
+#license file path, for example /home/kingbase/license_1309_0-sales.dat for linux or C:\\license_1309_0-sales.dat for windows
+KB_LICENSE_PATH=/opt/datasophon/KingbaseES/license_39893_0.dat
+
+#install set, options are Full, Client, Custom
+CHOSEN_INSTALL_SET=Full
+#component list, options are SERVER, KSTUDIO, KDTS, INTERFACE, DEPLOY, KINGBASEHA
+CHOSEN_FEATURE_LIST=SERVER,KSTUDIO,KDTS,INTERFACE,DEPLOY,KINGBASEHA
+
+#install dir path, for example /opt/Kingbase/ES/V8 for linux or C:\\Program Files\\Kingbase\\ES\\V8 for windows
+USER_INSTALL_DIR=${user_install_dir}
+
+#data dir path, for example /opt/Kingbase/ES/V8/data for linux or C:\\Program Files\\Kingbase\\ES\\V8\\data for windows
+USER_SELECTED_DATA_FOLDER=${user_select_data_folder}
+ 
+#init db params
+#server port, requied, between 1 and 65535
+DB_PORT=${db_port}
+#user name, required, length less than 63 bytes
+DB_USER=system
+#password, required
+DB_PASS=${db_pass}
+#password confirm, required
+DB_PASS2=${db_pass2}
+#encoding, required, options are UTF8, GBK, GB18030, GB2312, default
+ENCODING_PARAM=${encoding_param}
+
+#locale, required, based on encoding
+#options are ______zh_CN.UTF-8, en_US.UTF-8, C     (encoding = UTF-8)
+#             \____zh_CN.GBK, C                    (encoding = GBK)
+#              \___zh_CN.GB18030, C                (encoding = GB18030)
+#               \__zh_CN.GB2312, C                 (encoding = GB2312)
+#                \_C, default                      (encoding = default)
+LOCALE_PARAM=${locale_param}
+
+
+#compatibility mode, required, options are ORACLE, PG, MySQL
+DATABASE_MODE_PARAM=${database_mode_param}
+#case sensitivity, required, options are YES, NO
+CASE_SENSITIVE_PARAM=YES
+#block size, required, options are 8k, 16k, 32k
+BLOCK_SIZE_PARAM=${block_size_param}
+
+#authentication method, required, options are scram-sha-256, scram-sm3, sm4, sm3
+AUTHENTICATION_METHOD_PARAM=${authentication_method}

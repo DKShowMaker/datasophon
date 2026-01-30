@@ -122,6 +122,7 @@ scrape_configs:
      - files:
        - configs/trinoworker.json
   - job_name: 'StarRocks'
+    metrics_path: '/metrics'
     file_sd_configs:
      - files:
        - configs/starrocks.json
@@ -178,5 +179,10 @@ scrape_configs:
     file_sd_configs:
     - files:
       - configs/kyuubiserver.json
+  - job_name: 'minio_job'
+    metrics_path: '/minio/prometheus/metrics'
+    file_sd_configs:
+      - files:
+        - configs/minioservice.json
 
 

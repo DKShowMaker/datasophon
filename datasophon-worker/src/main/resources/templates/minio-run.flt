@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# 设置MinIO的配置参数
+export MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+export MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+
+export MINIO_PROMETHEUS_AUTH_TYPE=public   #加入这行环境变量，“public”表示Prometheus访问minio集群可以不通过身份验证
+
+/opt/datasophon/minio/minio server --config-dir /opt/datasophon/minio/etc \
+        --address "0.0.0.0:${apiPort}" --console-address ":${consolePort}" \
+        ${dataPaths} > /opt/datasophon/minio/minio.log 2>&1 &

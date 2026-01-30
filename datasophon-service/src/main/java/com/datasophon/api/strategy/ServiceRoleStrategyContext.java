@@ -62,6 +62,7 @@ public class ServiceRoleStrategyContext {
         strategyMap.put("HBASE", new HBaseHandlerStrategy());
         strategyMap.put("FLINK", new FlinkHandlerStrategy());
         strategyMap.put("KYUUBI", new KyuubiServerHandlerStrategy());
+        strategyMap.put("REDIS", new RedisHandlerStrategy());
         
         // serviceNameMap
         serviceNameMap.put("NameNode", "HDFS");

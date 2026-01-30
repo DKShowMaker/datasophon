@@ -1,0 +1,199 @@
+{
+  "name": "Kingbase",
+  "label": "Kingbase",
+  "description": "国产数据库",
+  "version": "v8",
+  "sortNum": 23,
+  "dependencies": [],
+  "packageName": "KingbaseES.tar.gz",
+  "decompressPackageName": "KingbaseES",
+  "roles": [
+    {
+      "name": "KingbaseService",
+      "label": "KingbaseService",
+      "roleType": "master",
+      "cardinality": "1+",
+      "sortNum": 1,
+      "logFile": "kingbase.log",
+      "jmxPort": 22222,
+      "startRunner": {
+        "timeout": "600",
+        "program": "bin/start.sh",
+        "args": []
+      },
+      "stopRunner": {
+        "timeout": "60",
+        "program": "bin/stop.sh",
+        "args": []
+      },
+      "statusRunner": {
+        "timeout": "60",
+        "program": "bin/status.sh",
+        "args": []
+      }
+    }
+  ],
+  "configWriter": {
+    "generators": [
+	
+      {
+        "filename": "silent.cfg",
+        "configFormat": "custom",
+        "outputDirectory": "bin",
+        "templateName": "Kingbase-silent.flt",
+        "includeParams": [
+          "user_install_dir",
+          "user_select_data_folder",
+          "db_port",
+          "db_user",
+          "db_pass",
+	  "db_pass2",
+          "encoding_param",
+          "locale_param",
+          "database_mode_param",
+          "block_size_param",
+          "authentication_method"
+		  
+        ]
+      }
+		
+    ]
+  },
+  "parameters": [
+    {
+      "name": "user_install_dir",
+      "label": "用户下载目录",
+      "description": "路径",
+      "required": true,
+      "configType":"map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "/opt/datasophon/KingbaseES/Kingbase"
+    },
+    {
+      "name": "user_select_data_folder",
+      "label": "数据存储目录",
+      "description": "路径",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "/opt/datasophon/KingbaseES/Kingbase/data"
+    },
+    {
+      "name": "db_port",
+      "label": "api访问端口",
+      "description": "api访问端口",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "54321",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "54321"
+    },
+    {
+      "name": "db_user",
+      "label": "用户名id",
+      "description": "id",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "system"
+    },
+	{
+      "name": "db_pass",
+      "label": "密码",
+      "description": "Password",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "123456"
+    },
+	{
+      "name": "db_pass2",
+      "label": "确认密码",
+      "description": "confirm_Password",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "123456"
+    },
+	{
+      "name": "encoding_param",
+      "label": "字符编码格式",
+      "description": "encoding_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["UTF8", "GBK", "GB18030", "GB2312"],
+      "defaultvalue":"UTF8"
+    },
+    	{
+      "name": "locale_param",
+      "label": "语言编码格式",
+      "description": "locale_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["zh_CN.UTF-8", "en_US.UTF-8"],
+      "defaultValue":"zh_CN.UTF-8"
+    },
+
+	{
+      "name": "database_mode_param",
+      "label": "数据库兼容模式",
+      "description": "DATABASE_MODE_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["ORACLE", "PG", "MySQL"]
+    },
+	{
+      "name": "block_size_param",
+      "label": "数据库存储块大小",
+      "description": "BLOCK_SIZE_PARAM",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["8k", "16k", "32k"]
+    },
+	{
+      "name": "authentication_method",
+      "label": "身份验证方法",
+      "description": "authentication method",
+      "required": true,
+      "configType": "map",
+      "type": "select",
+      "value": "",
+      "configurableInWizard": true,
+      "hidden": false,
+      "selectValue": ["scram-sha-256", "scram-sm3", "sm4", "sm3"]
+    }
+  ]
+}
