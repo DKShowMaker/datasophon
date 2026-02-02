@@ -1,12 +1,15 @@
 #!/bin/bash
 
+# Redis 安装路径
+REDIS_HOME="${INSTALL_PATH}"
+
 # 定义启动和停止命令
-START_MASTER="/opt/datasophon/redis/redis-server /opt/datasophon/redis/cluster/conf/redis-master.conf"
-START_SLAVE="/opt/datasophon/redis/redis-server /opt/datasophon/redis/cluster/conf/redis-slave.conf"
-STOP_MASTER="/opt/datasophon/redis/redis-cli -p ${redisMasterPort} shutdown"
-STOP_SLAVE="/opt/datasophon/redis/redis-cli -p ${redisSlavePort} shutdown"
-STATUS_MASTER="/opt/datasophon/redis/redis-cli -p ${redisMasterPort} ping"
-STATUS_SLAVE="/opt/datasophon/redis/redis-cli -p ${redisSlavePort} ping"
+START_MASTER="$REDIS_HOME/redis-server $REDIS_HOME/cluster/conf/redis-master.conf"
+START_SLAVE="$REDIS_HOME/redis-server $REDIS_HOME/cluster/conf/redis-slave.conf"
+STOP_MASTER="$REDIS_HOME/redis-cli -p ${redisMasterPort} shutdown"
+STOP_SLAVE="$REDIS_HOME/redis-cli -p ${redisSlavePort} shutdown"
+STATUS_MASTER="$REDIS_HOME/redis-cli -p ${redisMasterPort} ping"
+STATUS_SLAVE="$REDIS_HOME/redis-cli -p ${redisSlavePort} ping"
 
 # 启动Master
 start_master() {

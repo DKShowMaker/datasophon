@@ -2,11 +2,11 @@
   "name": "REDIS",
   "label": "REDIS",
   "description": "交互式数据分析notebook",
-  "version": "7.2.3",
+  "version": "7.0.15",
   "sortNum": 37,
   "dependencies": [],
-  "packageName": "redis-7.2.3.tar.gz",
-  "decompressPackageName": "redis-7.2.3",
+  "packageName": "redis-7.0.15.tar.gz",
+  "decompressPackageName": "redis-7.0.15",
   "roles": [
     {
       "name": "RedisMaster",
@@ -81,6 +81,7 @@
         "outputDirectory": "",
         "templateName": "redis-control.ftl",
         "includeParams": [
+          "INSTALL_PATH",
           "redisMasterPort",
           "redisSlavePort"
         ]
@@ -91,6 +92,7 @@
         "outputDirectory": "cluster/conf",
         "templateName": "redis-master.ftl",
         "includeParams": [
+          "INSTALL_PATH",
           "redisMasterPort",
           "custom.master.conf"
         ]
@@ -101,6 +103,7 @@
         "outputDirectory": "cluster/conf",
         "templateName": "redis-slave.ftl",
         "includeParams": [
+          "INSTALL_PATH",
           "redisSlavePort",
           "custom.slave.conf"
         ]
@@ -111,6 +114,8 @@
         "outputDirectory": "",
         "templateName": "redis-cluster.ftl",
         "includeParams": [
+          "INSTALL_PATH",
+          "redisMasterPort",
           "RedisMasterAddr",
           "RedisSlaveAddr"
         ]
@@ -118,6 +123,18 @@
     ]
   },
   "parameters": [
+    {
+      "name": "INSTALL_PATH",
+      "label": "Redis安装路径",
+      "description": "Redis安装路径",
+      "configType": "map",
+      "required": true,
+      "type": "input",
+      "value": "/opt/datasophon/redis",
+      "configurableInWizard": false,
+      "hidden": true,
+      "defaultValue": "/opt/datasophon/redis"
+    },
     {
       "name": "redisMasterPort",
       "label": "master节点端口号",

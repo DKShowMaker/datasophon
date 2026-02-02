@@ -1,11 +1,11 @@
 ### 1、构建安装包
 
-下载redis tar包 redis-7.2.3.tar.gz
+下载redis tar包 redis-7.0.15.tar.gz https://redis.io/downloads/
 
 ```shell
-tar -zxvf redis-7.2.3.tar.gz
-cd redis-7.2.3
-# 编译
+tar -zxvf redis-7.0.15.tar.gz
+cd redis-7.0.15
+# 编译 如果三台机器的glibc版本不同需要在版本较低的环境中编译，否则可能会提高glibc的版本
 make && make install
 # 复制安装路径编译文件
 mkdir /opt/soft/redis-7.2.3

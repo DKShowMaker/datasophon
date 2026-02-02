@@ -1,91 +1,98 @@
 #!/bin/bash
 
-# 在这里替换为你的Redis Master和Worker节点的主机和端口（空格分隔）
-REDIS_MASTERS="${RedisMasterAddr}"
-REDIS_WORKERS="${RedisSlaveAddr}"
-COMMAND_CREATE_CLUSTER="echo yes | /opt/datasophon/redis/redis-cli --cluster create "
-COMMAND_ADD_NODE="/opt/datasophon/redis/redis-cli --cluster add-node "
+# Redis Cluster 自动创建脚本
+# 使用 --cluster-replicas 1 自动分配 Slave 节点
 
-CONTROL_SCRIPT="/opt/datasophon/redis/control_redis.sh"
+# 所有节点地址（Master和Worker）
+ALL_NODES="${RedisMasterAddr} ${RedisSlaveAddr}"
 
-create_cluster_command() {
-    local master_list="$1"
-    local create_command="$COMMAND_CREATE_CLUSTER"
-    for master in $master_list; do
-        create_command+=" $master"
-    done
-    echo "$create_command"
-}
+# Redis 安装路径
+REDIS_HOME="${INSTALL_PATH}"
 
-add_node_command() {
-    local new_master="$1"
-    local new_worker="$2"
-    local add_node_command="$COMMAND_ADD_NODE $new_master $new_worker --cluster-slave"
-    echo "$add_node_command"
-}
-
-check_redis_nodes() {
-    IFS=' ' read -ra MASTER_NODES <<< "$REDIS_MASTERS"
-    IFS=' ' read -ra WORKER_NODES <<< "$REDIS_WORKERS"
-
-    local CHECK_SCRIPT
-
-    # 检测Master节点状态
-    for master in "<#noparse>${MASTER_NODES[@]}</#noparse>"; do
-        CHECK_SCRIPT="$CONTROL_SCRIPT status master"
-        if ! ssh "$(echo "$master" | cut -d ":" -f 1)" "$CHECK_SCRIPT"; then
-            echo "Redis master node $master is not running."
+# 检查所有节点是否都已启动
+check_all_nodes() {
+    echo "Checking if all Redis nodes are running..."
+    
+    for node in $ALL_NODES; do
+        host=$(echo "$node" | cut -d ":" -f 1)
+        port=$(echo "$node" | cut -d ":" -f 2)
+        
+        # 使用 redis-cli ping 检查节点状态
+        if ! $REDIS_HOME/redis-cli -h $host -p $port ping > /dev/null 2>&1; then
+            echo "Redis node $node is not running."
             return 1
         fi
+        echo "Redis node $node is running."
     done
-
-    # 检测Worker节点状态
-    for worker in "<#noparse>${WORKER_NODES[@]}</#noparse>"; do
-        CHECK_SCRIPT="$CONTROL_SCRIPT status slave"
-        if ! ssh "$(echo "$worker" | cut -d ":" -f 1)" "$CHECK_SCRIPT $(echo "$worker" | cut -d ":" -f 2)"; then
-            echo "Redis worker node $worker is not running."
-            return 1
-        fi
-    done
-
+    
     return 0
 }
 
-main() {
-    if check_redis_nodes; then
-        # 如果所有节点都正常启动，执行创建集群命令
-        CREATE_CLUSTER_COMMAND=$(create_cluster_command "$REDIS_MASTERS")
-        echo "Executing command: $CREATE_CLUSTER_COMMAND"
-        eval "$CREATE_CLUSTER_COMMAND"
-
-        # 检查上一条命令执行状态
-        if [ $? -eq 0 ]; then
-            echo "Create cluster command executed successfully."
-        else
-            echo "Error: Create cluster command failed."
-            return 1
-        fi
-
-        # 执行添加节点命令
-        FIRST_MASTER="<#noparse>${MASTER_NODES[0]}</#noparse>"
-        for worker in "<#noparse>${WORKER_NODES[@]}</#noparse>"; do
-            ADD_NODE_COMMAND=$(add_node_command "$worker" "$FIRST_MASTER")
-            echo "Executing command: $ADD_NODE_COMMAND"
-            eval "$ADD_NODE_COMMAND"
-
-            # 检查上一条命令执行状态
-            if [ $? -eq 0 ]; then
-                echo "Add node command executed successfully."
-            else
-                echo "Error: Add node command failed."
-                return 1
-            fi
-        done
+# 创建集群（自动分配 Slave）
+create_cluster() {
+    echo "Creating Redis Cluster with auto-assigned slaves..."
+    echo "Nodes: $ALL_NODES"
+    
+    # 计算 --cluster-replicas 的值
+    # 如果有 3 Master 和 3 Slave，则 replica=1
+    # 公式: slave数量 / master数量
+    MASTER_COUNT=$(echo "${RedisMasterAddr}" | wc -w)
+    SLAVE_COUNT=$(echo "${RedisSlaveAddr}" | wc -w)
+    
+    if [ "$MASTER_COUNT" -eq 0 ]; then
+        echo "Error: No master nodes found."
+        return 1
+    fi
+    
+    REPLICAS=$((SLAVE_COUNT / MASTER_COUNT))
+    
+    echo "Master count: $MASTER_COUNT"
+    echo "Slave count: $SLAVE_COUNT"
+    echo "Replicas per master: $REPLICAS"
+    
+    # 创建集群命令
+    CREATE_CMD="echo yes | $REDIS_HOME/redis-cli --cluster create $ALL_NODES --cluster-replicas $REPLICAS"
+    echo "Executing: $CREATE_CMD"
+    
+    eval "$CREATE_CMD"
+    
+    if [ $? -eq 0 ]; then
+        echo "Redis Cluster created successfully!"
+        return 0
     else
-        echo "Not all Redis nodes are running. Cluster commands will not be executed."
+        echo "Error: Failed to create Redis Cluster."
+        return 1
     fi
 }
 
+# 主函数
+main() {
+    echo "=== Redis Cluster Auto-Setup Script ==="
+    echo "Install Path: $REDIS_HOME"
+    echo ""
+    
+    # 检查节点状态
+    if ! check_all_nodes; then
+        echo "Not all Redis nodes are running. Cluster creation aborted."
+        return 1
+    fi
+    
+    echo ""
+    echo "All nodes are running. Proceeding with cluster creation..."
+    echo ""
+    
+    # 创建集群
+    if create_cluster; then
+        echo ""
+        echo "=== Redis Cluster Setup Complete ==="
+        echo "You can check cluster status with: $REDIS_HOME/redis-cli -c -p ${redisMasterPort} cluster nodes"
+        return 0
+    else
+        echo ""
+        echo "=== Redis Cluster Setup Failed ==="
+        return 1
+    fi
+}
 
 # 执行主函数
 main
