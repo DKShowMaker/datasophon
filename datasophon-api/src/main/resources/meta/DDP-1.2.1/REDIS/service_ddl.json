@@ -103,9 +103,7 @@
         "includeParams": [
           "redisInstallPath",
           "redisMasterPort",
-          "redisSlavePort",
-          "redisExporterPortMaster",
-          "redisExporterPortWorker"
+          "redisSlavePort"
         ]
       },
       {
