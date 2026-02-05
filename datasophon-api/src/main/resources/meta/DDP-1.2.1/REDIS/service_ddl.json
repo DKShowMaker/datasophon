@@ -16,7 +16,7 @@
       "runAs": {},
       "jmxPort": "9120",
       "metricsPath": "/metrics",
-      "logFile": "cluster/log/cluster-master.log",
+      "logFile": "cluster/log/redis-master.log",
       "startRunner": {
         "timeout": "60",
         "program": "bin/redis-control.sh",
@@ -58,7 +58,7 @@
       "runAs": {},
       "jmxPort": "9121",
       "metricsPath": "/metrics",
-      "logFile": "cluster/log/cluster-slave.log",
+      "logFile": "cluster/log/redis-slave.log",
       "startRunner": {
         "timeout": "60",
         "program": "bin/redis-control.sh",
