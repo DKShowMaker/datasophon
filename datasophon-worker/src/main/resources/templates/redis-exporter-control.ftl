@@ -1,51 +1,51 @@
 #!/bin/bash
 
 #============================================================================
-# Redis Exporter 控制脚本
+# Redis Exporter Control Script
 #
-# 功能：管理 Redis Cluster 模式的 Prometheus Exporter
+# Function: Manage Prometheus Exporter for Redis Cluster mode
 #
-# 部署约束：
-#   - 仅支持 Redis Cluster 模式
-#   - 一个物理机最多运行 1 个 master 和 1 个 slave
-#   - 最多存在 2 个 Exporter 实例
-#   - 每个 Exporter 实例有独立的 PID 文件和日志文件
+# Deployment constraints:
+#   - Only supports Redis Cluster mode
+#   - One physical machine runs at most 1 master and 1 slave
+#   - Maximum 2 Exporter instances
+#   - Each Exporter instance has independent PID file and log file
 #
-# 文件结构：
-#   bin/redis-exporter-control.sh    # 本脚本
-#   bin/redis-exporter              # Exporter 二进制
+# File structure:
+#   bin/redis-exporter-control.sh    # This script
+#   bin/redis-exporter              # Exporter binary
 #   cluster/pid/
 #     ├── redis-exporter-master.pid  # Master Exporter PID
 #     └── redis-exporter-slave.pid   # Slave Exporter PID
 #   cluster/log/
-#     ├── redis_exporter_master.log  # Master Exporter 日志
-#     └── redis_exporter_slave.log   # Slave Exporter 日志
+#     ├── redis_exporter_master.log  # Master Exporter log
+#     └── redis_exporter_slave.log   # Slave Exporter log
 #
-# 使用方法：
-#   start                        # 启动所有 Exporter 实例
-#   start master/slave           # 启动指定角色的 Exporter
-#   stop                         # 停止所有 Exporter 实例（先停 slave，后停 master）
-#   stop master/slave            # 停止指定角色的 Exporter
-#   status                       # 查看所有 Exporter 状态
-#   status master/slave          # 查看指定角色的 Exporter 状态
+# Usage:
+#   start                        # Start all Exporter instances
+#   start master/slave           # Start Exporter for specified role
+#   stop                         # Stop all Exporter instances (slave first, then master)
+#   stop master/slave            # Stop Exporter for specified role
+#   status                       # Check status of all Exporters
+#   status master/slave          # Check status of Exporter for specified role
 #
-# 注意事项：
-#   - 不支持单实例模式
-#   - 不使用默认的 redis_exporter.pid
-#   - 所有的日志都记录到角色特定的日志文件中
-#   - 批量操作时，某个实例失败会记录错误但不影响后续操作
-#   - 启动后自动调用 status 验证启动结果
-#   - 停止顺序：先 slave 后 master（避免数据丢失）
-#   - 停止策略：先发送 TERM 信号，超时后发送 KILL 信号
+# Notes:
+#   - Single instance mode is not supported
+#   - Default redis_exporter.pid is not used
+#   - All logs are recorded to role-specific log files
+#   - For batch operations, instance failures are logged but do not affect subsequent operations
+#   - Auto-call status after startup to verify
+#   - Stop order: slave first, then master (to avoid data loss)
+#   - Stop strategy: send TERM signal first, then KILL signal after timeout
 #
-# 作者：Datasophon Team
-# 版本：1.0
+# Author: Datasophon Team
+# Version: 1.0
 #============================================================================
 
 REDIS_HOME="${redisInstallPath}/redis"
 REDIS_EXPORTER="$REDIS_HOME/bin/redis_exporter"
 
-# 日志函数
+# Log functions
 log_info() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $*"
 }
@@ -58,25 +58,25 @@ log_warn() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $*"
 }
 
-# 获取 PID 文件路径（根据角色）
+# Get PID file path (based on role)
 get_pid_file() {
     local role=$1
     echo "$REDIS_HOME/cluster/pid/redis-exporter-$role.pid"
 }
 
-# 获取日志文件路径（根据角色）
+# Get log file path (based on role)
 get_log_file() {
     local role=$1
     echo "$REDIS_HOME/cluster/log/redis-exporter-$role.log"
 }
 
-# 启动单个 Exporter 实例
+# Start single Exporter instance
 start_single_exporter() {
     local role=$1
     local redis_port
     local exporter_port
     
-    # 根据角色确定端口
+    # Determine port based on role
     if [ "$role" == "master" ]; then
         redis_port="${redisMasterPort}"
         exporter_port="${redisExporterPortMaster}"
@@ -84,44 +84,44 @@ start_single_exporter() {
         redis_port="${redisSlavePort}"
         exporter_port="${redisExporterPortWorker}"
     else
-        log_error "无效的角色: $role. 必须是 'master' 或 'slave'"
+        log_error "Invalid role: $role. Must be 'master' or 'slave'"
         return 1
     fi
     
-    # 使用角色特定的 PID 文件和日志文件
+    # Use role-specific PID file and log file
     local pid_file=$(get_pid_file "$role")
     local log_file=$(get_log_file "$role")
     
-    log_info "启动 Redis Exporter for role: $role"
-    log_info "  Redis 目标: localhost:$redis_port"
-    log_info "  Exporter 端口: $exporter_port"
-    log_info "  PID 文件: $pid_file"
-    log_info "  日志文件: $log_file"
+    log_info "Starting Redis Exporter for role: $role"
+    log_info "  Redis target: localhost:$redis_port"
+    log_info "  Exporter port: $exporter_port"
+    log_info "  PID file: $pid_file"
+    log_info "  Log file: $log_file"
     
-    # 检查 exporter 可执行文件
+    # Check exporter executable file
     if [ ! -f "$REDIS_EXPORTER" ]; then
-        log_error "Redis Exporter 二进制文件不存在: $REDIS_EXPORTER"
+        log_error "Redis Exporter binary file does not exist: $REDIS_EXPORTER"
         return 1
     fi
     
     if [ ! -x "$REDIS_EXPORTER" ]; then
-        log_error "Redis Exporter 二进制文件没有执行权限: $REDIS_EXPORTER"
+        log_error "Redis Exporter binary file does not have execute permission: $REDIS_EXPORTER"
         return 1
     fi
     
-    # 检查是否已经运行
+    # Check if already running
     if [ -f "$pid_file" ]; then
         old_pid=$(cat "$pid_file")
         if ps -p "$old_pid" > /dev/null 2>&1; then
-            log_warn "Redis Exporter for role $role 已经在运行 (PID: $old_pid)"
+            log_warn "Redis Exporter for role $role is already running (PID: $old_pid)"
             return 0
         else
-            log_warn "发现过时的 PID 文件 for role $role，正在清理..."
+            log_warn "Found stale PID file for role $role, cleaning up..."
             rm -f "$pid_file"
         fi
     fi
     
-    # 启动 exporter
+    # Start exporter
     export REDIS_ADDR="redis://localhost:$redis_port"
     export REDIS_EXPORTER_WEB_LISTEN_ADDRESS="0.0.0.0:$exporter_port"
     export REDIS_EXPORTER_NAMESPACE="redis"
@@ -135,60 +135,60 @@ start_single_exporter() {
     
     local new_pid=$!
     
-    # 等待启动
+    # Wait for startup
     sleep 2
     
-    # 检查是否启动成功
+    # Check if started successfully
     if ps -p "$new_pid" > /dev/null 2>&1; then
         echo "$new_pid" > "$pid_file"
-        log_info "Redis Exporter 启动成功 (PID: $new_pid)"
+        log_info "Redis Exporter started successfully (PID: $new_pid)"
         
-        # 验证端口监听
+        # Verify port listening
         sleep 1
         if ss -tlnp 2>/dev/null | grep -q ":$exporter_port "; then
-            log_info "Exporter 正在监听端口 $exporter_port"
+            log_info "Exporter is listening on port $exporter_port"
             return 0
         else
-            log_warn "Exporter 已启动但端口 $exporter_port 尚未监听（可能需要更多时间）"
+            log_warn "Exporter started but port $exporter_port not yet listening (may need more time)"
             return 0
         fi
     else
-        log_error "Redis Exporter 启动失败"
+        log_error "Redis Exporter failed to start"
         rm -f "$pid_file"
         return 1
     fi
 }
 
-# 停止单个 Exporter 实例
+# Stop single Exporter instance
 stop_single_exporter() {
     local role=$1
     local pid_file=$(get_pid_file "$role")
     
     if [ ! -f "$pid_file" ]; then
-        log_warn "Redis Exporter PID 文件不存在 for role: $role"
+        log_warn "Redis Exporter PID file does not exist for role: $role"
         return 0
     fi
     
     local pid=$(cat "$pid_file")
     
-    # 检查进程是否存在
+    # Check if process exists
     if ! ps -p "$pid" > /dev/null 2>&1; then
-        log_info "Redis Exporter 未在运行 (过时的 PID 文件)"
+        log_info "Redis Exporter is not running (stale PID file)"
         rm -f "$pid_file"
         return 0
     fi
     
-    # 优雅停止
-    log_info "正在停止 Redis Exporter for role: $role (PID: $pid)..."
+    # Graceful stop
+    log_info "Stopping Redis Exporter for role: $role (PID: $pid)..."
     kill "$pid"
     
-    # 等待进程结束
+    # Wait for process to end
     local count=0
     local max_wait=10
     
     while [ $count -lt $max_wait ]; do
         if ! ps -p "$pid" > /dev/null 2>&1; then
-            log_info "Redis Exporter 停止成功"
+            log_info "Redis Exporter stopped successfully"
             rm -f "$pid_file"
             return 0
         fi
@@ -196,224 +196,224 @@ stop_single_exporter() {
         count=$((count + 1))
     done
     
-    # 强制停止
-    log_warn "Redis Exporter 未优雅停止，强制终止..."
+    # Force stop
+    log_warn "Redis Exporter did not stop gracefully, forcing termination..."
     kill -9 "$pid"
     sleep 1
     
     if ! ps -p "$pid" > /dev/null 2>&1; then
-        log_info "Redis Exporter 已强制停止"
+        log_info "Redis Exporter force stopped"
         rm -f "$pid_file"
         return 0
     else
-        log_error "无法停止 Redis Exporter"
+        log_error "Unable to stop Redis Exporter"
         return 1
     fi
 }
 
-# 重启单个 Exporter 实例
+# Restart single Exporter instance
 restart_single_exporter() {
     local role=$1
     
-    log_info "重启 Redis Exporter for role: $role..."
+    log_info "Restarting Redis Exporter for role: $role..."
     
-    # 先停止
+    # Stop first
     if ! stop_single_exporter "$role"; then
-        log_warn "停止 role $role 的 Exporter 失败，继续启动..."
+        log_warn "Stop of Exporter for role $role failed, continuing with start..."
     fi
     
-    # 等待（与 start_single_exporter 启动后等待时间一致）
+    # Wait (consistent with wait time after start_single_exporter)
     sleep 2
     
-    # 再启动
+    # Then start
     if ! start_single_exporter "$role"; then
-        log_error "启动 role $role 的 Exporter 失败"
+        log_error "Start of Exporter for role $role failed"
         return 1
     fi
     
-    log_info "Redis Exporter for role: $role 重启成功"
+    log_info "Redis Exporter for role: $role restarted successfully"
     return 0
 }
 
-# 检查单个 Exporter 实例状态
+# Check single Exporter instance status
 check_single_exporter() {
     local role=$1
     local pid_file=$(get_pid_file "$role")
     local log_file=$(get_log_file "$role")
     
     if [ ! -f "$pid_file" ]; then
-        log_info "Redis Exporter 未在运行 (没有 PID 文件)"
+        log_info "Redis Exporter is not running (no PID file)"
         return 1
     fi
     
     local pid=$(cat "$pid_file")
     
     if ps -p "$pid" > /dev/null 2>&1; then
-        log_info "Redis Exporter 正在运行 (PID: $pid)"
-        log_info "  日志文件: $log_file"
+        log_info "Redis Exporter is running (PID: $pid)"
+        log_info "  Log file: $log_file"
         
-        # 显示进程信息
+        # Display process info
         ps -p "$pid" -o pid,ppid,cmd --no-headers 2>/dev/null | sed 's/^/  /'
         
         return 0
     else
-        log_info "Redis Exporter 未在运行 (过时的 PID 文件)"
+        log_info "Redis Exporter is not running (stale PID file)"
         rm -f "$pid_file"
         return 1
     fi
 }
 
-# 启动 Exporter（支持单个或批量）
+# Start Exporter (supports single or batch)
 start_exporter() {
     local role=$1
     
-    # 如果未指定角色，启动所有实例
+    # If role is not specified, start all instances
     if [ -z "$role" ]; then
-        log_info "正在启动所有 Redis Exporter 实例..."
+        log_info "Starting all Redis Exporter instances..."
         local all_started=true
         
-        # 顺序启动：先 master，后 slave
+        # Sequential start: master first, then slave
         for r in master slave; do
             log_info ""
             if ! start_single_exporter "$r"; then
-                log_error "无法启动 role $r 的 Exporter"
+                log_error "Unable to start Exporter for role $r"
                 all_started=false
             fi
         done
         
         echo ""
         if [ "$all_started" = true ]; then
-            log_info "所有 Exporter 启动成功"
-            # 自动验证启动结果
+            log_info "All Exporters started successfully"
+            # Auto-verify start result
             echo ""
             status_exporter
             return $?
         else
-            log_error "部分 Exporter 启动失败"
+            log_error "Some Exporters failed to start"
             return 1
         fi
     else
-        # 启动指定实例
+        # Start specified instance
         if ! start_single_exporter "$role"; then
-            log_error "无法启动 role $role 的 Exporter"
+            log_error "Unable to start Exporter for role $role"
             return 1
         fi
         
-        # 验证启动结果
+        # Verify start result
         echo ""
         status_exporter "$role"
         return $?
     fi
 }
 
-# 停止 Exporter（支持单个或批量）
+# Stop Exporter (supports single or batch)
 stop_exporter() {
     local role=$1
     
-    # 如果未指定角色，停止所有实例
+    # If role is not specified, stop all instances
     if [ -z "$role" ]; then
-        log_info "正在停止所有 Redis Exporter 实例..."
+        log_info "Stopping all Redis Exporter instances..."
         local all_stopped=true
         
-        # 顺序停止：先 slave，后 master（推荐顺序）
+        # Sequential stop: slave first, then master (recommended order)
         for r in slave master; do
             log_info ""
             if ! stop_single_exporter "$r"; then
-                log_error "无法停止 role $r 的 Exporter"
+                log_error "Unable to stop Exporter for role $r"
                 all_stopped=false
             fi
         done
         
         echo ""
         if [ "$all_stopped" = true ]; then
-            log_info "所有 Exporter 已停止"
+            log_info "All Exporters stopped"
             return 0
         else
-            log_error "部分 Exporter 停止失败"
+            log_error "Some Exporters failed to stop"
             return 1
         fi
     else
-        # 停止指定实例
+        # Stop specified instance
         if ! stop_single_exporter "$role"; then
-            log_error "无法停止 role $role 的 Exporter"
+            log_error "Unable to stop Exporter for role $role"
             return 1
         fi
     fi
 }
 
-# 重启 Exporter（支持单个或批量）
+# Restart Exporter (supports single or batch)
 restart_exporter() {
     local role=$1
     
-    # 如果未指定角色，重启所有实例
+    # If role is not specified, restart all instances
     if [ -z "$role" ]; then
-        log_info "正在重启所有 Redis Exporter 实例..."
+        log_info "Restarting all Redis Exporter instances..."
         
-        # 步骤 1：停止所有实例（先 slave，后 master）
+        # Step 1: Stop all instances (slave first, then master)
         echo ""
-        log_info "步骤 1/2: 停止所有 Exporter 实例..."
+        log_info "Step 1/2: Stopping all Exporter instances..."
         local all_stopped=true
         for r in slave master; do
             log_info ""
             if ! stop_single_exporter "$r"; then
-                log_error "无法停止 role $r 的 Exporter"
+                log_error "Unable to stop Exporter for role $r"
                 all_stopped=false
             fi
         done
         
-        # 等待（与 start_single_exporter 启动后等待时间一致）
+        # Wait (consistent with wait time after start_single_exporter)
         sleep 2
         
-        # 步骤 2：启动所有实例（先 master，后 slave）
+        # Step 2: Start all instances (master first, then slave)
         echo ""
-        log_info "步骤 2/2: 启动所有 Exporter 实例..."
+        log_info "Step 2/2: Starting all Exporter instances..."
         local all_started=true
         for r in master slave; do
             log_info ""
             if ! start_single_exporter "$r"; then
-                log_error "无法启动 role $r 的 Exporter"
+                log_error "Unable to start Exporter for role $r"
                 all_started=false
             fi
         done
         
-        # 总结
+        # Summary
         echo ""
         if [ "$all_stopped" = true ] && [ "$all_started" = true ]; then
-            log_info "所有 Exporter 重启成功"
-            # 自动验证重启结果
+            log_info "All Exporters restarted successfully"
+            # Auto-verify restart result
             echo ""
             status_exporter
             return 0
         else
-            log_error "部分 Exporter 重启失败"
+            log_error "Some Exporters failed to restart"
             return 1
         fi
     else
-        # 重启指定实例
+        # Restart specified instance
         restart_single_exporter "$role"
         local result=$?
         
-        # 验证重启结果
+        # Verify restart result
         echo ""
         status_exporter "$role"
         return $result
     fi
 }
 
-# 检查 Exporter 状态（支持单个或批量）
+# Check Exporter status (supports single or batch)
 status_exporter() {
     local role=$1
     
-    # 如果未指定角色，检查所有实例
+    # If role is not specified, check all instances
     if [ -z "$role" ]; then
-        log_info "正在检查所有 Redis Exporter 实例..."
+        log_info "Checking all Redis Exporter instances..."
         echo ""
         
         local total_running=0
         local total_instances=0
         
         for r in master slave; do
-            echo "--- $r Exporter 状态 ---"
+            echo "--- $r Exporter Status ---"
             if check_single_exporter "$r"; then
                 total_running=$((total_running + 1))
             fi
@@ -423,23 +423,23 @@ status_exporter() {
         
         echo "===================================="
         if [ $total_running -eq $total_instances ]; then
-            log_info "总结: 所有 $total_instances 个实例正在运行"
+            log_info "Summary: All $total_instances instances are running"
             return 0
         elif [ $total_running -eq 0 ]; then
-            log_info "总结: 没有实例在运行"
+            log_info "Summary: No instances are running"
             return 1
         else
-            log_info "总结: $total_running/$total_instances 个实例正在运行"
+            log_info "Summary: $total_running/$total_instances instances are running"
             return 0
         fi
     else
-        # 检查指定实例
+        # Check specified instance
         check_single_exporter "$role"
         return $?
     fi
 }
 
-# 主函数
+# Main function
 main() {
     local command=$1
     local role=$2
@@ -458,31 +458,31 @@ main() {
             status_exporter "$role"
             ;;
         *)
-            echo "使用方法：$0 {start|stop|restart|status} [master|slave]"
+            echo "Usage: $0 {start|stop|restart|status} [master|slave]"
             echo ""
-            echo "命令："
-            echo "  start    启动 Redis Exporter（不指定参数启动所有实例）"
-            echo "  stop     停止 Redis Exporter（不指定参数停止所有实例）"
-            echo "  restart  重启 Redis Exporter（不指定参数重启所有实例）"
-            echo "  status   查看 Redis Exporter 状态（不指定参数查看所有实例）"
+            echo "Commands:"
+            echo "  start    Start Redis Exporter (no parameter to start all instances)"
+            echo "  stop     Stop Redis Exporter (no parameter to stop all instances)"
+            echo "  restart  Restart Redis Exporter (no parameter to restart all instances)"
+            echo "  status   Check Redis Exporter status (no parameter to check all instances)"
             echo ""
-            echo "角色（可选，不指定默认作用于所有实例）："
-            echo "  master   Redis Master 的 Exporter（端口：\$redisExporterPortMaster）"
-            echo "  slave    Redis Worker 的 Exporter（端口：\$redisExporterPortWorker）"
+            echo "Roles (optional, defaults to all instances if not specified):"
+            echo "  master   Redis Master Exporter (port: \$redisExporterPortMaster)"
+            echo "  slave    Redis Slave Exporter (port: \$redisExporterPortWorker)"
             echo ""
-            echo "示例："
-            echo "  $0 start            # 启动所有 Exporter"
-            echo "  $0 start master     # 启动 Master Exporter"
-            echo "  $0 stop             # 停止所有 Exporter"
-            echo "  $0 stop slave       # 停止 Slave Exporter"
-            echo "  $0 restart          # 重启所有 Exporter"
-            echo "  $0 restart master   # 重启 Master Exporter"
-            echo "  $0 status           # 查看所有 Exporter 状态"
-            echo "  $0 status master    # 查看 Master Exporter 状态"
+            echo "Examples:"
+            echo "  $0 start            # Start all Exporters"
+            echo "  $0 start master     # Start Master Exporter"
+            echo "  $0 stop             # Stop all Exporters"
+            echo "  $0 stop slave       # Stop Slave Exporter"
+            echo "  $0 restart          # Restart all Exporters"
+            echo "  $0 restart master   # Restart Master Exporter"
+            echo "  $0 status           # Check all Exporters status"
+            echo "  $0 status master    # Check Master Exporter status"
             exit 1
             ;;
     esac
 }
 
-# 执行主函数
+# Execute main function
 main "$@"
