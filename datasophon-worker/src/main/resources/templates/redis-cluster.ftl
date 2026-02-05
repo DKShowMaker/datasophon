@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Redis Cluster 自动创建脚本
-# 使用 --cluster-replicas 1 自动分配 Slave 节点
+# Redis Cluster Auto Setup Script
+# Automatically assign Slave nodes using --cluster-replicas 1
 
-# 所有节点地址（Master和Worker）
+# All node addresses (Master and Worker)
 ALL_NODES="${RedisMasterAddr} ${RedisSlaveAddr}"
 
-# Redis 安装路径
+# Redis installation path
 REDIS_HOME="${redisInstallPath}/redis"
 
-# 检查所有节点是否都已启动
+# Check if all nodes are running
 check_all_nodes() {
     echo "Checking if all Redis nodes are running..."
     
@@ -17,7 +17,7 @@ check_all_nodes() {
         host=$(echo "$node" | cut -d ":" -f 1)
         port=$(echo "$node" | cut -d ":" -f 2)
         
-        # 使用 redis-cli ping 检查节点状态
+        # Check node status using redis-cli ping
         if ! $REDIS_HOME/bin/redis-cli -h $host -p $port ping > /dev/null 2>&1; then
             echo "Redis node $node is not running."
             return 1
@@ -28,14 +28,14 @@ check_all_nodes() {
     return 0
 }
 
-# 创建集群（自动分配 Slave）
+# Create cluster (auto-assign Slave)
 create_cluster() {
     echo "Creating Redis Cluster with auto-assigned slaves..."
     echo "Nodes: $ALL_NODES"
     
-    # 计算 --cluster-replicas 的值
-    # 如果有 3 Master 和 3 Slave，则 replica=1
-    # 公式: slave数量 / master数量
+    # Calculate --cluster-replicas value
+    # If there are 3 Masters and 3 Slaves, then replica=1
+    # Formula: slave count / master count
     MASTER_COUNT=$(echo "${RedisMasterAddr}" | wc -w)
     SLAVE_COUNT=$(echo "${RedisSlaveAddr}" | wc -w)
     
@@ -50,7 +50,7 @@ create_cluster() {
     echo "Slave count: $SLAVE_COUNT"
     echo "Replicas per master: $REPLICAS"
     
-    # 创建集群命令
+    # Cluster creation command
     CREATE_CMD="echo yes | $REDIS_HOME/bin/redis-cli --cluster create $ALL_NODES --cluster-replicas $REPLICAS"
     echo "Executing: $CREATE_CMD"
     
@@ -65,13 +65,13 @@ create_cluster() {
     fi
 }
 
-# 主函数
+# Main function
 main() {
     echo "=== Redis Cluster Auto-Setup Script ==="
     echo "Install Path: $REDIS_HOME"
     echo ""
     
-    # 检查节点状态
+    # Check node status
     if ! check_all_nodes; then
         echo "Not all Redis nodes are running. Cluster creation aborted."
         return 1
@@ -81,7 +81,7 @@ main() {
     echo "All nodes are running. Proceeding with cluster creation..."
     echo ""
     
-    # 创建集群
+    # Create cluster
     if create_cluster; then
         echo ""
         echo "=== Redis Cluster Setup Complete ==="
@@ -94,5 +94,5 @@ main() {
     fi
 }
 
-# 执行主函数
+# Execute main function
 main

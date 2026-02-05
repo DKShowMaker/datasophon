@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Redis 安装路径（脚本在 bin/ 目录下，所以 redis/ 在上一级目录）
+# Redis installation path (script is in bin/ folder, so redis/ is in parent directory)
 REDIS_HOME="${redisInstallPath}/redis"
 
-# 定义启动和停止命令（二进制在上一级目录）
+# Define start and stop commands (binaries are in parent directory)
 START_MASTER="$REDIS_HOME/bin/redis-server $REDIS_HOME/cluster/conf/redis-master.conf"
 START_SLAVE="$REDIS_HOME/bin/redis-server $REDIS_HOME/cluster/conf/redis-slave.conf"
 STOP_MASTER="$REDIS_HOME/bin/redis-cli -p ${redisMasterPort} shutdown"
@@ -11,15 +11,15 @@ STOP_SLAVE="$REDIS_HOME/bin/redis-cli -p ${redisSlavePort} shutdown"
 STATUS_MASTER="$REDIS_HOME/bin/redis-cli -p ${redisMasterPort} ping"
 STATUS_SLAVE="$REDIS_HOME/bin/redis-cli -p ${redisSlavePort} ping"
 
-# 启动Master
+# Start Master
 start_master() {
     echo "Starting Redis Master..."
     $START_MASTER
     
-    # 等待 Redis 启动
+    # Wait for Redis to start
     sleep 2
     
-    # 检查 Redis 是否启动成功
+    # Check if Redis started successfully
     status=$($STATUS_MASTER)
     if [ "$status" == "PONG" ]; then
         echo "Redis Master started successfully."
@@ -30,15 +30,15 @@ start_master() {
     fi
 }
 
-# 启动Slave
+# Start Slave
 start_slave() {
     echo "Starting Redis Slave..."
     $START_SLAVE
     
-    # 等待 Redis 启动
+    # Wait for Redis to start
     sleep 2
     
-    # 检查 Redis 是否启动成功
+    # Check if Redis started successfully
     status=$($STATUS_SLAVE)
     if [ "$status" == "PONG" ]; then
         echo "Redis Slave started successfully."
@@ -47,31 +47,31 @@ start_slave() {
         echo "ERROR: Redis Slave failed to start."
         return 1
     fi
-}
+ }
 
-# 停止Master
+# Stop Master
 stop_master() {
     echo "Stopping Redis Master..."
     $STOP_MASTER
     
-    # 等待 Redis 完全停止
+    # Wait for Redis to stop completely
     sleep 2
     
     echo "Redis Master stopped."
 }
 
-# 停止Slave
+# Stop Slave
 stop_slave() {
     echo "Stopping Redis Slave..."
     $STOP_SLAVE
     
-    # 等待 Redis 完全停止
+    # Wait for Redis to stop completely
     sleep 2
     
     echo "Redis Slave stopped."
 }
 
-# 检查状态
+# Check status
 check_status() {
     echo "Checking Redis status..."
     redis_status=$($1)
@@ -85,7 +85,7 @@ check_status() {
     return 0
 }
 
-# 重启Master
+# Restart Master
 restart_master() {
     echo "Restarting Redis Master..."
     stop_master
@@ -93,7 +93,7 @@ restart_master() {
     start_master
 }
 
-# 重启Slave
+# Restart Slave
 restart_slave() {
     echo "Restarting Redis Slave..."
     stop_slave
@@ -101,7 +101,7 @@ restart_slave() {
     start_slave
 }
 
-# 重启Redis（支持单个或批量）
+# Restart Redis (supports single or batch)
 restart_redis() {
     local role=$1
     
@@ -121,7 +121,7 @@ restart_redis() {
     esac
 }
 
-# 执行操作
+# Execute operation
 case $1 in
     start)
         case $2 in
