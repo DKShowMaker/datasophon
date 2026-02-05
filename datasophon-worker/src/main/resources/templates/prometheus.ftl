@@ -184,5 +184,11 @@ scrape_configs:
     file_sd_configs:
       - files:
         - configs/minioservice.json
+  - job_name: 'redis_exporter'
+    metrics_path: '/metrics'
+    file_sd_configs:
+      - files:
+        - configs/redismaster.json
+        - configs/redisworker.json
 
 

@@ -7,7 +7,7 @@
 ALL_NODES="${RedisMasterAddr} ${RedisSlaveAddr}"
 
 # Redis 安装路径
-REDIS_HOME="${INSTALL_PATH}"
+REDIS_HOME="${redisInstallPath}/redis"
 
 # 检查所有节点是否都已启动
 check_all_nodes() {
@@ -18,7 +18,7 @@ check_all_nodes() {
         port=$(echo "$node" | cut -d ":" -f 2)
         
         # 使用 redis-cli ping 检查节点状态
-        if ! $REDIS_HOME/redis-cli -h $host -p $port ping > /dev/null 2>&1; then
+        if ! $REDIS_HOME/bin/redis-cli -h $host -p $port ping > /dev/null 2>&1; then
             echo "Redis node $node is not running."
             return 1
         fi
@@ -51,7 +51,7 @@ create_cluster() {
     echo "Replicas per master: $REPLICAS"
     
     # 创建集群命令
-    CREATE_CMD="echo yes | $REDIS_HOME/redis-cli --cluster create $ALL_NODES --cluster-replicas $REPLICAS"
+    CREATE_CMD="echo yes | $REDIS_HOME/bin/redis-cli --cluster create $ALL_NODES --cluster-replicas $REPLICAS"
     echo "Executing: $CREATE_CMD"
     
     eval "$CREATE_CMD"
@@ -85,7 +85,7 @@ main() {
     if create_cluster; then
         echo ""
         echo "=== Redis Cluster Setup Complete ==="
-        echo "You can check cluster status with: $REDIS_HOME/redis-cli -c -p ${redisMasterPort} cluster nodes"
+        echo "You can check cluster status with: $REDIS_HOME/bin/redis-cli -c -p ${redisMasterPort} cluster nodes"
         return 0
     else
         echo ""

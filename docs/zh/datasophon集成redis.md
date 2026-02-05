@@ -14,18 +14,25 @@ cp /usr/local/bin/redis* /opt/soft/redis-7.2.3
 rm -rf /usr/local/bin/redis*
 
 # 创建自定义文件及文件夹，目录结构为
-cluster			# 自定义
-	-conf			# 自定义					 
-  -log 			# 自定义
-  -pid 			# 自定义
-control_redis.sh
-redis-benchmark
-redis-check-aof
-redis-check-rdb
-redis-cli
-redis-cluster.sh		# 自定义
-redis-sentinel
-redis-server
+/opt/datasophon/redis/
+[root@ddp02 redis-7.0.15]# tree
+.
+|-- bin
+|   |-- redis-benchmark
+|   |-- redis-check-aof
+|   |-- redis-check-rdb
+|   |-- redis-cli
+|   |-- redis-sentinel
+|   |-- redis-server
+|   |-- redis_control.sh 
+|   |-- redis_exporter
+|   `-- redis_exporter_control.sh 
+|-- cluster
+|   |-- conf
+|   |-- log
+|   `-- pid
+`-- redis-cluster.sh               # 集群初始化脚本
+
 
 tar czf redis-7.2.3.tar.gz redis-7.2.3
 md5sum redis-7.2.3.tar.gz

@@ -184,7 +184,7 @@ public class ClusterHostServiceImpl extends ServiceImpl<ClusterHostMapper, Clust
             if (!listInstalledSerivce.isEmpty()) {
                 return Result.error(host.getHostname() + Status.HOST_EXIT_ONE_INSTALLED_ROLE.getMsg() + installedRoles);
             }
-
+            
             ClusterInfoEntity clusterInfo = clusterInfoService.getById(host.getClusterId());
             String clusterCode = clusterInfo.getClusterCode();
             String distributeAgentKey = clusterCode + Constants.UNDERLINE + Constants.START_DISTRIBUTE_AGENT;

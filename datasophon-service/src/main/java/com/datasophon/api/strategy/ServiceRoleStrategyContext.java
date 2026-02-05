@@ -97,6 +97,8 @@ public class ServiceRoleStrategyContext {
         serviceNameMap.put("KAFKA", "KAFKA");
         serviceNameMap.put("HBASE", "HBASE");
         serviceNameMap.put("KYUUBI", "KYUUBI");
+        serviceNameMap.put("RedisMaster", "REDIS");
+        serviceNameMap.put("RedisWorker", "REDIS");
         
     }
     

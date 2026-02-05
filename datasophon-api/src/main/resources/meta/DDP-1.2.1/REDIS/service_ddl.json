@@ -14,10 +14,12 @@
       "roleType": "master",
       "cardinality": "1+",
       "runAs": {},
+      "jmxPort": "9120",
+      "metricsPath": "/metrics",
       "logFile": "cluster/log/cluster-master.log",
       "startRunner": {
         "timeout": "60",
-        "program": "control_redis.sh",
+        "program": "bin/redis-control.sh",
         "args": [
           "start",
           "master"
@@ -25,7 +27,7 @@
       },
       "stopRunner": {
         "timeout": "600",
-        "program": "control_redis.sh",
+        "program": "bin/redis-control.sh",
         "args": [
           "stop",
           "master"
@@ -33,9 +35,17 @@
       },
       "statusRunner": {
         "timeout": "60",
-        "program": "control_redis.sh",
+        "program": "bin/redis-control.sh",
         "args": [
           "status",
+          "master"
+        ]
+      },
+      "restartRunner": {
+        "timeout": "120",
+        "program": "bin/redis-control.sh",
+        "args": [
+          "restart",
           "master"
         ]
       }
@@ -46,10 +56,12 @@
       "roleType": "worker",
       "cardinality": "1+",
       "runAs": {},
+      "jmxPort": "9121",
+      "metricsPath": "/metrics",
       "logFile": "cluster/log/cluster-slave.log",
       "startRunner": {
         "timeout": "60",
-        "program": "control_redis.sh",
+        "program": "bin/redis-control.sh",
         "args": [
           "start",
           "slave"
@@ -57,7 +69,7 @@
       },
       "stopRunner": {
         "timeout": "600",
-        "program": "control_redis.sh",
+        "program": "bin/redis-control.sh",
         "args": [
           "stop",
           "slave"
@@ -65,9 +77,17 @@
       },
       "statusRunner": {
         "timeout": "60",
-        "program": "control_redis.sh",
+        "program": "bin/redis-control.sh",
         "args": [
           "status",
+          "slave"
+        ]
+      },
+      "restartRunner": {
+        "timeout": "120",
+        "program": "bin/redis-control.sh",
+        "args": [
+          "restart",
           "slave"
         ]
       }
@@ -76,14 +96,16 @@
   "configWriter": {
     "generators": [
       {
-        "filename": "control_redis.sh",
+        "filename": "redis-control.sh",
+        "outputDirectory": "bin",
         "configFormat": "custom",
-        "outputDirectory": "",
         "templateName": "redis-control.ftl",
         "includeParams": [
-          "INSTALL_PATH",
+          "redisInstallPath",
           "redisMasterPort",
-          "redisSlavePort"
+          "redisSlavePort",
+          "redisExporterPortMaster",
+          "redisExporterPortWorker"
         ]
       },
       {
@@ -92,7 +114,7 @@
         "outputDirectory": "cluster/conf",
         "templateName": "redis-master.ftl",
         "includeParams": [
-          "INSTALL_PATH",
+          "redisInstallPath",
           "redisMasterPort",
           "custom.master.conf"
         ]
@@ -103,7 +125,7 @@
         "outputDirectory": "cluster/conf",
         "templateName": "redis-slave.ftl",
         "includeParams": [
-          "INSTALL_PATH",
+          "redisInstallPath",
           "redisSlavePort",
           "custom.slave.conf"
         ]
@@ -114,26 +136,39 @@
         "outputDirectory": "",
         "templateName": "redis-cluster.ftl",
         "includeParams": [
-          "INSTALL_PATH",
+          "redisInstallPath",
           "redisMasterPort",
           "RedisMasterAddr",
           "RedisSlaveAddr"
+        ]
+      },
+      {
+        "filename": "redis-exporter-control.sh",
+        "configFormat": "custom",
+        "outputDirectory": "bin",
+        "templateName": "redis-exporter-control.ftl",
+        "includeParams": [
+          "redisInstallPath",
+          "redisMasterPort",
+          "redisSlavePort",
+          "redisExporterPortMaster",
+          "redisExporterPortWorker"
         ]
       }
     ]
   },
   "parameters": [
     {
-      "name": "INSTALL_PATH",
+      "name": "redisInstallPath",
       "label": "Redis安装路径",
       "description": "Redis安装路径",
       "configType": "map",
       "required": true,
       "type": "input",
-      "value": "/opt/datasophon/redis",
-      "configurableInWizard": false,
-      "hidden": true,
-      "defaultValue": "/opt/datasophon/redis"
+      "value": "${INSTALL_PATH}",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "${INSTALL_PATH}"
     },
     {
       "name": "redisMasterPort",
@@ -158,6 +193,30 @@
       "configurableInWizard": true,
       "hidden": false,
       "defaultValue": "7001"
+    },
+    {
+      "name": "redisExporterPortMaster",
+      "label": "RedisMaster Exporter端口",
+      "description": "RedisMaster 的 redis_exporter 监听端口",
+      "configType": "map",
+      "required": true,
+      "type": "input",
+      "value": "9120",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "9120"
+    },
+    {
+      "name": "redisExporterPortWorker",
+      "label": "RedisWorker Exporter端口",
+      "description": "RedisWorker 的 redis_exporter 监听端口",
+      "configType": "map",
+      "required": true,
+      "type": "input",
+      "value": "9121",
+      "configurableInWizard": true,
+      "hidden": false,
+      "defaultValue": "9121"
     },
     {
       "name": "custom.master.conf",

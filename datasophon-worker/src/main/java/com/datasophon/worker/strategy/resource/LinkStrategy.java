@@ -28,7 +28,7 @@ public class LinkStrategy extends ResourceStrategy {
         File targetFile = new File(realTarget);
         FileUtil.mkdir(targetFile.getParent());
         ShellUtils.exceShell("ln -s " + source + " " + realTarget);
-
+        
         if (!targetFile.exists()) {
             if (sourceFile.exists()) {
                 log.info("Create existing symbolic dir:  {} to {}", source, realTarget);
