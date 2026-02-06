@@ -197,13 +197,12 @@ case $1 in
                     exit 1
                 fi
                 echo "Restarting Redis Master..."
-                $STOP_MASTER
-                sleep 2
-                $START_MASTER
-                sleep 2
-                redis_status=$($STATUS_MASTER)
-                if [ "$redis_status" != "PONG" ]; then
-                    echo "ERROR: Redis Master failed to restart."
+                stop_master
+                if [ $? -ne 0 ]; then
+                    exit 1
+                fi
+                start_master
+                if [ $? -ne 0 ]; then
                     exit 1
                 fi
                 echo "Redis Master restarted successfully."
@@ -214,13 +213,12 @@ case $1 in
                     exit 1
                 fi
                 echo "Restarting Redis Slave..."
-                $STOP_SLAVE
-                sleep 2
-                $START_SLAVE
-                sleep 2
-                redis_status=$($STATUS_SLAVE)
-                if [ "$redis_status" != "PONG" ]; then
-                    echo "ERROR: Redis Slave failed to restart."
+                stop_slave
+                if [ $? -ne 0 ]; then
+                    exit 1
+                fi
+                start_slave
+                if [ $? -ne 0 ]; then
                     exit 1
                 fi
                 echo "Redis Slave restarted successfully."

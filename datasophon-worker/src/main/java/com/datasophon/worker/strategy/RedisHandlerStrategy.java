@@ -8,6 +8,7 @@ import com.datasophon.common.utils.ShellUtils;
 import com.datasophon.worker.handler.ServiceHandler;
 
 import java.sql.SQLException;
+import java.util.Objects;
 
 public class RedisHandlerStrategy extends AbstractHandlerStrategy implements ServiceRoleStrategy {
     
@@ -25,31 +26,62 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         
         switch (commandType) {
             case INSTALL_SERVICE:
+
                 result = serviceHandler.start(command.getStartRunner(), command.getStatusRunner(),
                         command.getDecompressPackageName(), command.getRunAs());
-                ShellUtils.exceShell("bash " + workPath + "/redis-cluster.sh");
-                startRedisExporter(workPath);
+                if (!result.getExecResult()) {
+                    return result;
+                }
+                ExecResult clusterResult = ShellUtils.exceShell("bash " + workPath + "/redis-cluster.sh");
+                if (!clusterResult.getExecResult()) {
+                    return withFailureContext("redis-cluster.sh", clusterResult);
+                }
+                ExecResult exporterResult = startRedisExporter(workPath);
+                if (!exporterResult.getExecResult()) {
+                    return withFailureContext("redis-exporter", exporterResult);
+                }
                 break;
             
             case START_SERVICE:
             case START_WITH_CONFIG:
+
                 result = serviceHandler.start(command.getStartRunner(), command.getStatusRunner(),
                         command.getDecompressPackageName(), command.getRunAs());
-                startRedisExporter(workPath);
+                if (!result.getExecResult()) {
+                    return result;
+                }
+                ExecResult startExporterResult = startRedisExporter(workPath);
+                if (!startExporterResult.getExecResult()) {
+                    return withFailureContext("redis-exporter", startExporterResult);
+                }
                 break;
-            
+
             case STOP_SERVICE:
+
                 result = serviceHandler.stop(command.getStopRunner(), command.getStatusRunner(),
                         command.getDecompressPackageName(), command.getRunAs());
-                stopRedisExporter(workPath);
+                if (!result.getExecResult()) {
+                    return result;
+                }
+                ExecResult stopExporterResult = stopRedisExporter(workPath);
+                if (!stopExporterResult.getExecResult()) {
+                    return withFailureContext("redis-exporter", stopExporterResult);
+                }
                 break;
-            
+
             case RESTART_SERVICE:
             case RESTART_WITH_CONFIG:
+
                 result = serviceHandler.reStart(command.getRestartRunner(), command.getDecompressPackageName());
-                restartRedisExporter(workPath);
+                if (!result.getExecResult()) {
+                    return result;
+                }
+                ExecResult restartExporterResult = restartRedisExporter(workPath);
+                if (!restartExporterResult.getExecResult()) {
+                    return withFailureContext("redis-exporter", restartExporterResult);
+                }
                 break;
-            
+
             default:
                 result = new ExecResult();
                 result.setExecResult(false);
@@ -59,27 +91,63 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         return result;
     }
     
-    private void startRedisExporter(String workPath) {
+    private ExecResult startRedisExporter(String workPath) {
         try {
-            ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh start");
+            ExecResult result = ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh start");
+            if (!result.getExecResult()) {
+                logger.warn("Failed to start redis_exporter: {}", result.getExecOut());
+            }
+            return result;
         } catch (Exception e) {
             logger.warn("Failed to start redis_exporter: {}", e.getMessage());
+            ExecResult result = new ExecResult();
+            result.setExecResult(false);
+            result.setExecOut(e.getMessage());
+            return result;
         }
     }
     
-    private void stopRedisExporter(String workPath) {
+    private ExecResult stopRedisExporter(String workPath) {
         try {
-            ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh stop");
+            ExecResult result = ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh stop");
+            if (!result.getExecResult()) {
+                logger.warn("Failed to stop redis_exporter: {}", result.getExecOut());
+            }
+            return result;
         } catch (Exception e) {
             logger.warn("Failed to stop redis_exporter: {}", e.getMessage());
+            ExecResult result = new ExecResult();
+            result.setExecResult(false);
+            result.setExecOut(e.getMessage());
+            return result;
         }
     }
     
-    private void restartRedisExporter(String workPath) {
+    private ExecResult restartRedisExporter(String workPath) {
         try {
-            ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh restart");
+            ExecResult result = ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh restart");
+            if (!result.getExecResult()) {
+                logger.warn("Failed to restart redis_exporter: {}", result.getExecOut());
+            }
+            return result;
         } catch (Exception e) {
             logger.warn("Failed to restart redis_exporter: {}", e.getMessage());
+            ExecResult result = new ExecResult();
+            result.setExecResult(false);
+            result.setExecOut(e.getMessage());
+            return result;
         }
+    }
+
+    private ExecResult withFailureContext(String stepName, ExecResult result) {
+        ExecResult finalResult = Objects.nonNull(result) ? result : new ExecResult();
+        finalResult.setExecResult(false);
+        String execOut = finalResult.getExecOut();
+        if (Objects.nonNull(execOut) && !execOut.isEmpty()) {
+            finalResult.setExecOut(stepName + " failed: " + execOut);
+        } else {
+            finalResult.setExecOut(stepName + " failed");
+        }
+        return finalResult;
     }
 }
