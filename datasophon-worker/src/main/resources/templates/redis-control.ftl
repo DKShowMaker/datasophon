@@ -11,15 +11,29 @@ STOP_SLAVE="$REDIS_HOME/bin/redis-cli -p ${redisSlavePort} shutdown"
 STATUS_MASTER="$REDIS_HOME/bin/redis-cli -p ${redisMasterPort} ping"
 STATUS_SLAVE="$REDIS_HOME/bin/redis-cli -p ${redisSlavePort} ping"
 
+# Check if Master is configured
+check_master_config() {
+    if [ ! -f "$REDIS_HOME/cluster/conf/redis-master.conf" ]; then
+        return 1
+    fi
+    return 0
+}
+
+# Check if Slave is configured
+check_slave_config() {
+    if [ ! -f "$REDIS_HOME/cluster/conf/redis-slave.conf" ]; then
+        return 1
+    fi
+    return 0
+}
+
 # Start Master
 start_master() {
     echo "Starting Redis Master..."
     $START_MASTER
-    
-    # Wait for Redis to start
+
     sleep 2
-    
-    # Check if Redis started successfully
+
     status=$($STATUS_MASTER)
     if [ "$status" == "PONG" ]; then
         echo "Redis Master started successfully."
@@ -34,11 +48,9 @@ start_master() {
 start_slave() {
     echo "Starting Redis Slave..."
     $START_SLAVE
-    
-    # Wait for Redis to start
+
     sleep 2
-    
-    # Check if Redis started successfully
+
     status=$($STATUS_SLAVE)
     if [ "$status" == "PONG" ]; then
         echo "Redis Slave started successfully."
@@ -47,95 +59,65 @@ start_slave() {
         echo "ERROR: Redis Slave failed to start."
         return 1
     fi
- }
+}
 
 # Stop Master
 stop_master() {
     echo "Stopping Redis Master..."
     $STOP_MASTER
-    
-    # Wait for Redis to stop completely
+
     sleep 2
-    
-    echo "Redis Master stopped."
+
+    redis_status=$($STATUS_MASTER)
+    if [ "$redis_status" == "PONG" ]; then
+        echo "WARNING: Redis Master is still running."
+        return 1
+    else
+        echo "Redis Master stopped."
+        return 0
+    fi
 }
 
 # Stop Slave
 stop_slave() {
     echo "Stopping Redis Slave..."
     $STOP_SLAVE
-    
-    # Wait for Redis to stop completely
-    sleep 2
-    
-    echo "Redis Slave stopped."
-}
 
-# Check status
-check_status() {
-    echo "Checking Redis status..."
-    redis_status=$($1)
-    
+    sleep 2
+
+    redis_status=$($STATUS_SLAVE)
     if [ "$redis_status" == "PONG" ]; then
-        echo "Redis is running."
+        echo "WARNING: Redis Slave is still running."
+        return 1
     else
-        echo "Redis is not running."
+        echo "Redis Slave stopped."
+        return 0
     fi
-    
-    return 0
-}
-
-# Restart Master
-restart_master() {
-    echo "Restarting Redis Master..."
-    stop_master
-    sleep 2
-    start_master
-}
-
-# Restart Slave
-restart_slave() {
-    echo "Restarting Redis Slave..."
-    stop_slave
-    sleep 2
-    start_slave
-}
-
-# Restart Redis (supports single or batch)
-restart_redis() {
-    local role=$1
-    
-    case $role in
-        "")
-            echo "Restarting all Redis instances..."
-            restart_redis slave
-            restart_redis master
-            echo "All Redis instances restarted."
-            ;;
-        master)
-            restart_master
-            ;;
-        slave)
-            restart_slave
-            ;;
-    esac
 }
 
 # Execute operation
 case $1 in
     start)
         case $2 in
-            "")
-                echo "Starting all Redis instances..."
-                start_master
-                start_slave
-                echo "All Redis instances started."
-                ;;
             master)
+                if ! check_master_config; then
+                    echo "ERROR: Master is not configured."
+                    exit 1
+                fi
                 start_master
+                if [ $? -ne 0 ]; then
+                    exit 1
+                fi
                 ;;
             slave)
+                if ! check_slave_config; then
+                    echo "ERROR: Slave is not configured."
+                    exit 1
+                fi
                 start_slave
+                if [ $? -ne 0 ]; then
+                    exit 1
+                fi
                 ;;
             *)
                 echo "Invalid second parameter. Usage: $0 start [master|slave]"
@@ -145,17 +127,25 @@ case $1 in
         ;;
     stop)
         case $2 in
-            "")
-                echo "Stopping all Redis instances..."
-                stop_slave
-                stop_master
-                echo "All Redis instances stopped."
-                ;;
             master)
+                if ! check_master_config; then
+                    echo "ERROR: Master is not configured."
+                    exit 1
+                fi
                 stop_master
+                if [ $? -ne 0 ]; then
+                    exit 1
+                fi
                 ;;
             slave)
+                if ! check_slave_config; then
+                    echo "ERROR: Slave is not configured."
+                    exit 1
+                fi
                 stop_slave
+                if [ $? -ne 0 ]; then
+                    exit 1
+                fi
                 ;;
             *)
                 echo "Invalid second parameter. Usage: $0 stop [master|slave]"
@@ -165,20 +155,33 @@ case $1 in
         ;;
     status)
         case $2 in
-            "")
-                echo "Checking status of all Redis instances..."
-                echo ""
-                echo "=== Redis Master Status ==="
-                check_status "$STATUS_MASTER"
-                echo ""
-                echo "=== Redis Slave Status ==="
-                check_status "$STATUS_SLAVE"
-                ;;
             master)
-                check_status "$STATUS_MASTER"
+                if ! check_master_config; then
+                    echo "ERROR: Master is not configured."
+                    exit 1
+                fi
+                redis_status=$($STATUS_MASTER)
+                if [ "$redis_status" == "PONG" ]; then
+                    echo "Redis Master is running."
+                    exit 0
+                else
+                    echo "Redis Master is not running."
+                    exit 1
+                fi
                 ;;
             slave)
-                check_status "$STATUS_SLAVE"
+                if ! check_slave_config; then
+                    echo "ERROR: Slave is not configured."
+                    exit 1
+                fi
+                redis_status=$($STATUS_SLAVE)
+                if [ "$redis_status" == "PONG" ]; then
+                    echo "Redis Slave is running."
+                    exit 0
+                else
+                    echo "Redis Slave is not running."
+                    exit 1
+                fi
                 ;;
             *)
                 echo "Invalid second parameter. Usage: $0 status [master|slave]"
@@ -188,11 +191,39 @@ case $1 in
         ;;
     restart)
         case $2 in
-            "")
-                restart_redis ""
+            master)
+                if ! check_master_config; then
+                    echo "ERROR: Master is not configured."
+                    exit 1
+                fi
+                echo "Restarting Redis Master..."
+                $STOP_MASTER
+                sleep 2
+                $START_MASTER
+                sleep 2
+                redis_status=$($STATUS_MASTER)
+                if [ "$redis_status" != "PONG" ]; then
+                    echo "ERROR: Redis Master failed to restart."
+                    exit 1
+                fi
+                echo "Redis Master restarted successfully."
                 ;;
-            master|slave)
-                restart_redis "$2"
+            slave)
+                if ! check_slave_config; then
+                    echo "ERROR: Slave is not configured."
+                    exit 1
+                fi
+                echo "Restarting Redis Slave..."
+                $STOP_SLAVE
+                sleep 2
+                $START_SLAVE
+                sleep 2
+                redis_status=$($STATUS_SLAVE)
+                if [ "$redis_status" != "PONG" ]; then
+                    echo "ERROR: Redis Slave failed to restart."
+                    exit 1
+                fi
+                echo "Redis Slave restarted successfully."
                 ;;
             *)
                 echo "Invalid second parameter. Usage: $0 restart [master|slave]"

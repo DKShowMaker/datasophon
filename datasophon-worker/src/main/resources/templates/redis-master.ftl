@@ -10,7 +10,7 @@ appendonly yes
 appendfilename appendonly-master.aof
 
 cluster-enabled yes
-cluster-config-file ${redisInstallPath}/redis/cluster/conf/redis-master.conf
+cluster-config-file ${redisInstallPath}/redis/cluster/conf/nodes-${redisMasterPort}.conf
 cluster-node-timeout 5000
 
 <#list itemList as item>
