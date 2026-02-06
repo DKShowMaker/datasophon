@@ -45,10 +45,11 @@
         "filename": "start.sh",
         "configFormat": "custom",
         "outputDirectory": "bin",
-        "templateName": "minio-run.flt",
+        "templateName": "minio-run.ftl",
         "includeParams": [
           "MINIO_ACCESS_KEY",
           "MINIO_SECRET_KEY",
+          "minioInstallPath",
           "dataPaths",
           "apiPort",
           "consolePort"
@@ -57,6 +58,18 @@
     ]
   },
   "parameters": [
+    {
+      "name": "minioInstallPath",
+      "label": "minio安装路径",
+      "description": "minio安装路径",
+      "required": true,
+      "configType": "map",
+      "type": "input",
+      "value": "${INSTALL_PATH}",
+      "configurableInWizard": false,
+      "hidden": true,
+      "defaultValue": "${INSTALL_PATH}"
+    },
     {
       "name": "MINIO_ACCESS_KEY",
       "label": "用户名",

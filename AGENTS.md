@@ -138,3 +138,24 @@ The project uses Akka for distributed actor communication. When working with act
 For database operations, use MyBatis-Plus:
 - Use lambda queries: `.lambdaQuery().eq(Entity::getField, value).list()`
 - Use QueryWrapper for complex queries
+
+## 注意事项
+
+- FreeMarker 只会接收 `configType="map"` 的参数；`configType="path"` 不会传入模板，模板里的 `${...}` 会变成 missing。
+- `value` 才是运行期实际值，`defaultValue` 仅用于前端显示；`value` 为空会导致模板变量解析失败。
+- `includeParams` 必须与 `parameters` 中的 `name` 完全匹配（区分大小写），且多数需要 `required=true`；否则 configs 为空会跳过 `.sh` 生成，脚本会缺失。
+- 在 FTL 里：`${var}` 是 Freemarker 变量，Bash 变量请写 `$VAR`；含 `${1:-}` 之类需要转义成 `${"$"}{1:-}`，否则会触发模板语法错误。
+- `INSTALL_PATH` 是datasophon的安装路径，是固有变量，不允许在`servi_ddl.json`中被重新声明或直接放入`includeParams`，但可以在`parameters`的`value`和`defaultValue`字段直接使用，一般用于该服务的默认安装路径。
+- 变更 `service_ddl.json` 后需要重启 Master（或清理元数据缓存）才能重新加载；否则 `ServiceRoleJmxMap`/配置文件仍是旧数据。
+- Redis 角色必须映射到 `REDIS`（`RedisMaster`/`RedisWorker`），否则服务策略/监控生成会缺失。
+- 所有服务脚本通用要求：`status` 在未运行时必须 `exit 1`，否则系统会误判已启动并跳过 `start`。
+- Redis Cluster 的 `cluster-config-file` 不能指向静态 conf（`redis-master.conf`/`redis-slave.conf`），必须使用 `nodes-<port>.conf`，否则会报 corrupted cluster config。
+- `runAs` 为空对象会触发 `chown null:null`；要么移除 `runAs`，要么确保 user/group 非空。
+- `ShellUtils.exceShell()` 内部固定用 `sh`，而 `ServiceHandler.execRunner()` 会按 shebang 选 `bash/sh`；脚本需保证 `/bin/sh` 可用或统一成 POSIX 语法。
+- Prometheus 的 file_sd 配置按角色小写生成（如 `minioservice.json`/`redismaster.json`）；`prometheus.ftl` 里文件名需一致。
+- MinIO 监控需设置 `metrics_path: /minio/prometheus/metrics` 且 `MINIO_PROMETHEUS_AUTH_TYPE=public`，否则 Prometheus 抓取失败。
+- MinIO 用户名至少 5 字符、密码至少 8 字符且不能过于简单，否则 MinIO 无法启动。
+- MinIO 数据目录必须为空且不要直接用根盘作为数据盘；必要时设置 `MINIO_CI_CD=on` 仅用于临时调试。
+- 端口冲突/防火墙是 Prometheus 目标 `DOWN` 的高频原因，部署前务必检查端口占用并开放对应端口。
+- Docker 部署过 Manager 后移除容器会遗留 `masterHost`，需更新 `conf/common.properties` 里的容器 ID，否则包下载会指向已删除容器。
+- Redis 二进制在高版本 glibc 上构建会导致低版本机器报 `GLIBC_xxx not found`，需在低版本系统构建或使用兼容包。
