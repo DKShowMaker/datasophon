@@ -10,6 +10,8 @@ import com.datasophon.worker.handler.ServiceHandler;
 import java.sql.SQLException;
 import java.util.Objects;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class RedisHandlerStrategy extends AbstractHandlerStrategy implements ServiceRoleStrategy {
     
     public RedisHandlerStrategy(String serviceName, String serviceRoleName) {
@@ -23,6 +25,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         ExecResult result;
         
         CommandType commandType = command.getCommandType();
+        String exporterRole = resolveExporterRole(command.getServiceRoleName());
         
         switch (commandType) {
             case INSTALL_SERVICE:
@@ -36,7 +39,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                 if (!clusterResult.getExecResult()) {
                     return withFailureContext("redis-cluster.sh", clusterResult);
                 }
-                ExecResult exporterResult = startRedisExporter(workPath);
+                ExecResult exporterResult = startRedisExporter(workPath, exporterRole);
                 if (!exporterResult.getExecResult()) {
                     return withFailureContext("redis-exporter", exporterResult);
                 }
@@ -50,7 +53,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                 if (!result.getExecResult()) {
                     return result;
                 }
-                ExecResult startExporterResult = startRedisExporter(workPath);
+                ExecResult startExporterResult = startRedisExporter(workPath, exporterRole);
                 if (!startExporterResult.getExecResult()) {
                     return withFailureContext("redis-exporter", startExporterResult);
                 }
@@ -63,7 +66,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                 if (!result.getExecResult()) {
                     return result;
                 }
-                ExecResult stopExporterResult = stopRedisExporter(workPath);
+                ExecResult stopExporterResult = stopRedisExporter(workPath, exporterRole);
                 if (!stopExporterResult.getExecResult()) {
                     return withFailureContext("redis-exporter", stopExporterResult);
                 }
@@ -76,7 +79,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                 if (!result.getExecResult()) {
                     return result;
                 }
-                ExecResult restartExporterResult = restartRedisExporter(workPath);
+                ExecResult restartExporterResult = restartRedisExporter(workPath, exporterRole);
                 if (!restartExporterResult.getExecResult()) {
                     return withFailureContext("redis-exporter", restartExporterResult);
                 }
@@ -91,15 +94,34 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         return result;
     }
     
-    private ExecResult startRedisExporter(String workPath) {
+    private ExecResult startRedisExporter(String workPath, String exporterRole) {
+        return execRedisExporter(workPath, "start", exporterRole);
+    }
+    
+    private ExecResult stopRedisExporter(String workPath, String exporterRole) {
+        return execRedisExporter(workPath, "stop", exporterRole);
+    }
+    
+    private ExecResult restartRedisExporter(String workPath, String exporterRole) {
+        return execRedisExporter(workPath, "restart", exporterRole);
+    }
+    
+    private ExecResult execRedisExporter(String workPath, String action, String exporterRole) {
+        if (!StringUtils.isNotBlank(exporterRole)) {
+            ExecResult result = new ExecResult();
+            result.setExecResult(false);
+            result.setExecOut("redis-exporter role is empty, action: " + action);
+            return result;
+        }
         try {
-            ExecResult result = ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh start");
+            String command = "bash " + workPath + "/bin/redis-exporter-control.sh " + action + " " + exporterRole;
+            ExecResult result = ShellUtils.exceShell(command);
             if (!result.getExecResult()) {
-                logger.warn("Failed to start redis_exporter: {}", result.getExecOut());
+                logger.warn("Failed to {} redis_exporter({}): {}", action, exporterRole, result.getExecOut());
             }
             return result;
         } catch (Exception e) {
-            logger.warn("Failed to start redis_exporter: {}", e.getMessage());
+            logger.warn("Failed to {} redis_exporter({}): {}", action, exporterRole, e.getMessage());
             ExecResult result = new ExecResult();
             result.setExecResult(false);
             result.setExecOut(e.getMessage());
@@ -107,36 +129,17 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         }
     }
     
-    private ExecResult stopRedisExporter(String workPath) {
-        try {
-            ExecResult result = ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh stop");
-            if (!result.getExecResult()) {
-                logger.warn("Failed to stop redis_exporter: {}", result.getExecOut());
-            }
-            return result;
-        } catch (Exception e) {
-            logger.warn("Failed to stop redis_exporter: {}", e.getMessage());
-            ExecResult result = new ExecResult();
-            result.setExecResult(false);
-            result.setExecOut(e.getMessage());
-            return result;
+    private String resolveExporterRole(String serviceRoleName) {
+        if (!StringUtils.isNotBlank(serviceRoleName)) {
+            return null;
         }
-    }
-    
-    private ExecResult restartRedisExporter(String workPath) {
-        try {
-            ExecResult result = ShellUtils.exceShell("bash " + workPath + "/bin/redis-exporter-control.sh restart");
-            if (!result.getExecResult()) {
-                logger.warn("Failed to restart redis_exporter: {}", result.getExecOut());
-            }
-            return result;
-        } catch (Exception e) {
-            logger.warn("Failed to restart redis_exporter: {}", e.getMessage());
-            ExecResult result = new ExecResult();
-            result.setExecResult(false);
-            result.setExecOut(e.getMessage());
-            return result;
+        if ("RedisMaster".equals(serviceRoleName)) {
+            return "master";
         }
+        if ("RedisWorker".equals(serviceRoleName)) {
+            return "slave";
+        }
+        return null;
     }
 
     private ExecResult withFailureContext(String stepName, ExecResult result) {
