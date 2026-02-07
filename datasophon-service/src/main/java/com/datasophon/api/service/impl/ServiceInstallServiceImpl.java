@@ -296,7 +296,18 @@ public class ServiceInstallServiceImpl implements ServiceInstallService {
                         + Constants.SERVICE_ROLE_HOST_MAPPING;
         HashMap<String, List<String>> map = new HashMap<>();
         if (CacheUtils.constainsKey(hostMapKey)) {
-            map = (HashMap<String, List<String>>) CacheUtils.get(hostMapKey);
+            // Copy cached role map to avoid mutating cache on validation failure.
+            HashMap<String, List<String>> cachedMap =
+                    (HashMap<String, List<String>>) CacheUtils.get(hostMapKey);
+            if (Objects.nonNull(cachedMap)) {
+                cachedMap.forEach((key, value) -> {
+                    if (Objects.nonNull(value)) {
+                        map.put(key, new ArrayList<>(value));
+                    } else {
+                        map.put(key, null);
+                    }
+                });
+            }
         }
         
         for (ServiceRoleHostMapping serviceRoleHostMapping : list) {
@@ -313,6 +324,8 @@ public class ServiceInstallServiceImpl implements ServiceInstallService {
                 serviceRoleHandler.handler(clusterId, serviceRoleHostMapping.getHosts(), serviceName);
             }
         }
+        
+        validateCrossRoleCount(map, list);
         
         CacheUtils.put(
                 clusterInfo.getClusterCode()
@@ -758,6 +771,34 @@ public class ServiceInstallServiceImpl implements ServiceInstallService {
         if ("KyuubiServer".equals(serviceRole) && hosts.size() != 2) {
             throw new ServiceException(Status.TWO_KYUUBISERVERS_NEED_TO_BE_DEPLOYED.getMsg());
         }
+        if ("RedisMaster".equals(serviceRole) && CollectionUtils.isEmpty(hosts)) {
+            throw new ServiceException(Status.SELECT_LEAST_ONE_HOST.getMsg());
+        }
+    }
+    
+    private void validateCrossRoleCount(HashMap<String, List<String>> map, List<ServiceRoleHostMapping> list) {
+        if (Objects.isNull(list) || list.isEmpty()) {
+            return;
+        }
+        Set<String> touchedRoles = list.stream()
+                .map(ServiceRoleHostMapping::getServiceRole)
+                .collect(Collectors.toSet());
+        if (touchedRoles.contains("RedisMaster") || touchedRoles.contains("RedisWorker")) {
+        if (!map.containsKey("RedisMaster") || !map.containsKey("RedisWorker")) {
+            // Step5/Step6 are saved separately; only validate when both roles are present.
+            return;
+        }
+        int masterCount = getRoleCount(map, "RedisMaster");
+        int workerCount = getRoleCount(map, "RedisWorker");
+            if (workerCount < masterCount || workerCount % masterCount != 0) {
+                throw new ServiceException(Status.REDIS_MASTER_WORKER_COUNT_INVALID.getMsg());
+            }
+        }
+    }
+    
+    private int getRoleCount(HashMap<String, List<String>> map, String roleName) {
+        List<String> hosts = map.get(roleName);
+        return Objects.nonNull(hosts) ? hosts.size() : 0;
     }
     
     private List<ServiceConfig> listServiceConfigByServiceInstance(

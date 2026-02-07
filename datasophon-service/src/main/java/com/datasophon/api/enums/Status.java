@@ -90,6 +90,8 @@ public enum Status {
     NO_SERVICE_ROLE_SELECTED(10041, "No service role selected", "未选择需要安装的服务实例"),
     TWO_KYUUBISERVERS_NEED_TO_BE_DEPLOYED(10042, "two kyuubiServer deployments are required", "KyuubiServer需要两个节点"),
     HOST_EXIT_ONE_INSTALLED_ROLE(10043, "at least one role is installed on the host:", "主机上存在未删除的角色:"),
+    REDIS_MASTER_WORKER_COUNT_INVALID(10044, "Redis master/worker count is invalid",
+            "Redis Master/Worker数量不符合要求，需要worker>=master且worker数量能被master数量整除"),
     ;
     
     private final int code;
