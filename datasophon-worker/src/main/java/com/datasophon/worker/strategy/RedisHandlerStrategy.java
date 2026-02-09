@@ -7,10 +7,10 @@ import com.datasophon.common.utils.ExecResult;
 import com.datasophon.common.utils.ShellUtils;
 import com.datasophon.worker.handler.ServiceHandler;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.sql.SQLException;
 import java.util.Objects;
-
-import org.apache.commons.lang3.StringUtils;
 
 public class RedisHandlerStrategy extends AbstractHandlerStrategy implements ServiceRoleStrategy {
     
@@ -29,7 +29,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         
         switch (commandType) {
             case INSTALL_SERVICE:
-
+                
                 result = serviceHandler.start(command.getStartRunner(), command.getStatusRunner(),
                         command.getDecompressPackageName(), command.getRunAs());
                 if (!result.getExecResult()) {
@@ -47,7 +47,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
             
             case START_SERVICE:
             case START_WITH_CONFIG:
-
+                
                 result = serviceHandler.start(command.getStartRunner(), command.getStatusRunner(),
                         command.getDecompressPackageName(), command.getRunAs());
                 if (!result.getExecResult()) {
@@ -58,9 +58,9 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                     return withFailureContext("redis-exporter", startExporterResult);
                 }
                 break;
-
+            
             case STOP_SERVICE:
-
+                
                 result = serviceHandler.stop(command.getStopRunner(), command.getStatusRunner(),
                         command.getDecompressPackageName(), command.getRunAs());
                 if (!result.getExecResult()) {
@@ -71,10 +71,10 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                     return withFailureContext("redis-exporter", stopExporterResult);
                 }
                 break;
-
+            
             case RESTART_SERVICE:
             case RESTART_WITH_CONFIG:
-
+                
                 result = serviceHandler.reStart(command.getRestartRunner(), command.getDecompressPackageName());
                 if (!result.getExecResult()) {
                     return result;
@@ -84,7 +84,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                     return withFailureContext("redis-exporter", restartExporterResult);
                 }
                 break;
-
+            
             default:
                 result = new ExecResult();
                 result.setExecResult(false);
@@ -141,7 +141,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         }
         return null;
     }
-
+    
     private ExecResult withFailureContext(String stepName, ExecResult result) {
         ExecResult finalResult = Objects.nonNull(result) ? result : new ExecResult();
         finalResult.setExecResult(false);

@@ -784,12 +784,12 @@ public class ServiceInstallServiceImpl implements ServiceInstallService {
                 .map(ServiceRoleHostMapping::getServiceRole)
                 .collect(Collectors.toSet());
         if (touchedRoles.contains("RedisMaster") || touchedRoles.contains("RedisWorker")) {
-        if (!map.containsKey("RedisMaster") || !map.containsKey("RedisWorker")) {
-            // Step5/Step6 are saved separately; only validate when both roles are present.
-            return;
-        }
-        int masterCount = getRoleCount(map, "RedisMaster");
-        int workerCount = getRoleCount(map, "RedisWorker");
+            if (!map.containsKey("RedisMaster") || !map.containsKey("RedisWorker")) {
+                // Step5/Step6 are saved separately; only validate when both roles are present.
+                return;
+            }
+            int masterCount = getRoleCount(map, "RedisMaster");
+            int workerCount = getRoleCount(map, "RedisWorker");
             if (workerCount < masterCount || workerCount % masterCount != 0) {
                 throw new ServiceException(Status.REDIS_MASTER_WORKER_COUNT_INVALID.getMsg());
             }

@@ -92,7 +92,7 @@ public enum Status {
     HOST_EXIT_ONE_INSTALLED_ROLE(10043, "at least one role is installed on the host:", "主机上存在未删除的角色:"),
     REDIS_MASTER_WORKER_COUNT_INVALID(10044, "Redis master/worker count is invalid",
             "Redis Master/Worker数量不符合要求，需要worker>=master且worker数量能被master数量整除"),
-    ;
+            ;
     
     private final int code;
     private final String enMsg;
