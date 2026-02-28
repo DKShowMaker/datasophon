@@ -37,18 +37,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class StartWorkerHandler implements DispatcherWorkerHandler {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(StartWorkerHandler.class);
-    
+
     private Integer clusterId;
-    
+
     private String clusterFrame;
-    
+
     public StartWorkerHandler(Integer clusterId, String clusterFrame) {
         this.clusterId = clusterId;
         this.clusterFrame = clusterFrame;
     }
-    
+
     @Override
     public boolean handle(ClientSession session, HostInfo hostInfo) throws UnknownHostException {
         ConfigBean configBean = SpringTool.getApplicationContext().getBean(ConfigBean.class);
@@ -74,20 +74,20 @@ public class StartWorkerHandler implements DispatcherWorkerHandler {
             // Initialize environment
             MinaUtils.execCmdWithResult(session, "ulimit -n 102400");
             MinaUtils.execCmdWithResult(session, "sysctl -w vm.max_map_count=2000000");
-            // Set startup and self start
+            // Register as systemd service
             MinaUtils.execCmdWithResult(session,
-                    "\\cp " + installPath + "/datasophon-worker/script/datasophon-worker /etc/rc.d/init.d/");
-            MinaUtils.execCmdWithResult(session, "chmod +x /etc/rc.d/init.d/datasophon-worker");
-            MinaUtils.execCmdWithResult(session, "chkconfig --add datasophon-worker");
+                    "\\cp " + installPath + "/datasophon-worker/script/datasophon-worker.service /etc/systemd/system/");
+            MinaUtils.execCmdWithResult(session, "systemctl daemon-reload");
+            MinaUtils.execCmdWithResult(session, "systemctl enable datasophon-worker");
             MinaUtils.execCmdWithResult(session,
                     "\\cp " + installPath + "/datasophon-worker/script/datasophon-env.sh /etc/profile.d/");
             MinaUtils.execCmdWithResult(session, "source /etc/profile.d/datasophon-env.sh");
             hostInfo.setMessage(MessageResolverUtils.getMessage("start.host.management.agent"));
-            MinaUtils.execCmdWithResult(session, "service datasophon-worker restart");
+            MinaUtils.execCmdWithResult(session, "systemctl restart datasophon-worker");
             hostInfo.setProgress(75);
             hostInfo.setCreateTime(new Date());
         }
-        
+
         logger.info("end dispatcher host agent :{}", hostInfo.getHostname());
         return true;
     }

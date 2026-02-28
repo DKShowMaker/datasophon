@@ -1,0 +1,15 @@
+[Unit]
+Description=Datasophon Worker Service
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/datasophon/datasophon-worker/bin/datasophon-worker.sh start worker
+ExecStop=/opt/datasophon/datasophon-worker/bin/datasophon-worker.sh stop worker
+ExecReload=/opt/datasophon/datasophon-worker/bin/datasophon-worker.sh restart worker
+PIDFile=/opt/datasophon/datasophon-worker/pid/worker.pid
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
