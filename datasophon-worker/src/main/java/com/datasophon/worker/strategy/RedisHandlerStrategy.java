@@ -1,21 +1,16 @@
 package com.datasophon.worker.strategy;
 
 import com.datasophon.common.Constants;
-import com.datasophon.common.command.RedisClusterNotifyCommand;
 import com.datasophon.common.command.ServiceRoleOperateCommand;
 import com.datasophon.common.enums.CommandType;
 import com.datasophon.common.utils.ExecResult;
 import com.datasophon.common.utils.ShellUtils;
 import com.datasophon.worker.handler.ServiceHandler;
-import com.datasophon.worker.utils.ActorUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
 import java.sql.SQLException;
 import java.util.Objects;
-
-import akka.actor.ActorRef;
-import cn.hutool.core.net.NetUtil;
 
 public class RedisHandlerStrategy extends AbstractHandlerStrategy implements ServiceRoleStrategy {
     
@@ -44,7 +39,6 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                 if (!exporterResult.getExecResult()) {
                     return withFailureContext("redis-exporter", exporterResult);
                 }
-                notifyRedisInstallCompleted(command);
                 break;
             
             case START_SERVICE:
@@ -108,32 +102,8 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         return execRedisExporter(workPath, "restart", exporterRole);
     }
     
-    private void notifyRedisInstallCompleted(ServiceRoleOperateCommand command) {
-        if (!"RedisMaster".equals(command.getServiceRoleName()) && !"RedisWorker".equals(command.getServiceRoleName())) {
-            return;
-        }
-        try {
-            ActorRef masterNodeProcessingActor = ActorUtils.getRemoteActor(command.getManagerHost(), "masterNodeProcessingActor");
-            if (Objects.isNull(masterNodeProcessingActor)) {
-                logger.warn("masterNodeProcessingActor not found on manager host: {}", command.getManagerHost());
-                return;
-            }
-            RedisClusterNotifyCommand notifyCommand = new RedisClusterNotifyCommand();
-            notifyCommand.setClusterId(command.getClusterId());
-            notifyCommand.setServiceName(command.getServiceName());
-            notifyCommand.setServiceRoleName(command.getServiceRoleName());
-            notifyCommand.setDecompressPackageName(command.getDecompressPackageName());
-            notifyCommand.setHostname(NetUtil.getLocalhostStr());
-            masterNodeProcessingActor.tell(notifyCommand, ActorRef.noSender());
-            logger.info("notify manager redis install completed, role: {}, host: {}", command.getServiceRoleName(),
-                    notifyCommand.getHostname());
-        } catch (Exception e) {
-            logger.warn("notify manager redis install completed failed: {}", e.getMessage());
-        }
-    }
-    
     private ExecResult execRedisExporter(String workPath, String action, String exporterRole) {
-        if (!StringUtils.isNotBlank(exporterRole)) {
+        if (StringUtils.isBlank(exporterRole)) {
             ExecResult result = new ExecResult();
             result.setExecResult(false);
             result.setExecOut("redis-exporter role is empty, action: " + action);
@@ -156,7 +126,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
     }
     
     private String resolveExporterRole(String serviceRoleName) {
-        if (!StringUtils.isNotBlank(serviceRoleName)) {
+        if (StringUtils.isBlank(serviceRoleName)) {
             return null;
         }
         if ("RedisMaster".equals(serviceRoleName)) {

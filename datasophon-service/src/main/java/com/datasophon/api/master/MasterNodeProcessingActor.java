@@ -125,17 +125,21 @@ public class MasterNodeProcessingActor extends UntypedActor {
             logger.info("skip non-redis notify command, serviceName: {}", command.getServiceName());
             return;
         }
+        if (!REDIS_WORKER_ROLE_NAME.equals(command.getServiceRoleName())) {
+            logger.info("skip redis notify from non-worker role, roleName: {}", command.getServiceRoleName());
+            return;
+        }
         if (!isRedisClusterReady(command.getClusterId())) {
             return;
         }
         
         String leaderHost = resolveRedisClusterLeaderHost(command.getClusterId());
-        if (!StringUtils.isNotBlank(leaderHost)) {
+        if (StringUtils.isBlank(leaderHost)) {
             logger.warn("Redis cluster init skipped because leader host is empty, clusterId: {}", command.getClusterId());
             return;
         }
         
-        if (!StringUtils.isNotBlank(command.getDecompressPackageName())) {
+        if (StringUtils.isBlank(command.getDecompressPackageName())) {
             logger.warn("Redis cluster init skipped because decompressPackageName is empty, clusterId: {}",
                     command.getClusterId());
             return;
@@ -152,55 +156,39 @@ public class MasterNodeProcessingActor extends UntypedActor {
     }
     
     private boolean isRedisClusterReady(Integer clusterId) {
-        int expectedRoleCount = getExpectedRedisRoleCount(clusterId);
-        if (expectedRoleCount <= 0) {
-            logger.warn("Redis cluster expected role count is invalid, clusterId: {}", clusterId);
+        int expectedWorkerCount = getExpectedRedisWorkerCount(clusterId);
+        if (expectedWorkerCount <= 0) {
+            logger.warn("Redis cluster expected worker count is invalid, clusterId: {}", clusterId);
             return false;
         }
-        int installedRoleCount = getInstalledRedisRoleCount(clusterId);
-        logger.info("Redis cluster install progress, clusterId: {}, installed: {}, expected: {}", clusterId,
-                installedRoleCount, expectedRoleCount);
-        return installedRoleCount >= expectedRoleCount;
+        int installedWorkerCount = getInstalledRedisWorkerCount(clusterId);
+        logger.info("Redis worker install progress, clusterId: {}, installed: {}, expected: {}", clusterId,
+                installedWorkerCount, expectedWorkerCount);
+        return installedWorkerCount >= expectedWorkerCount;
     }
     
-    private int getExpectedRedisRoleCount(Integer clusterId) {
+    private int getExpectedRedisWorkerCount(Integer clusterId) {
         ClusterInfoService clusterInfoService = SpringTool.getApplicationContext().getBean(ClusterInfoService.class);
         ClusterInfoEntity clusterInfo = clusterInfoService.getById(clusterId);
         if (Objects.isNull(clusterInfo)) {
             return 0;
         }
         
-        int expectedRoleCount = 0;
         String hostMapKey = clusterInfo.getClusterCode() + Constants.UNDERLINE + Constants.SERVICE_ROLE_HOST_MAPPING;
         HashMap<String, List<String>> hostMap = (HashMap<String, List<String>>) CacheUtils.get(hostMapKey);
-        if (Objects.nonNull(hostMap)) {
-            expectedRoleCount = expectedRoleCount + getRoleHostCount(hostMap, REDIS_MASTER_ROLE_NAME);
-            expectedRoleCount = expectedRoleCount + getRoleHostCount(hostMap, REDIS_WORKER_ROLE_NAME);
-        }
-        
-        if (expectedRoleCount > 0) {
-            return expectedRoleCount;
+        if (Objects.nonNull(hostMap) && Objects.nonNull(hostMap.get(REDIS_WORKER_ROLE_NAME))) {
+            return hostMap.get(REDIS_WORKER_ROLE_NAME).size();
         }
         
         Map<String, String> globalVariables = GlobalVariables.get(clusterId);
         if (Objects.isNull(globalVariables)) {
             return 0;
         }
-        int masterCount = countAddressNodes(globalVariables.get("${RedisMasterAddr}"));
-        int workerCount = countAddressNodes(globalVariables.get("${RedisSlaveAddr}"));
-        return masterCount + workerCount;
-    }
-    
-    private int getRoleHostCount(HashMap<String, List<String>> hostMap, String roleName) {
-        List<String> hosts = hostMap.get(roleName);
-        if (Objects.nonNull(hosts)) {
-            return hosts.size();
-        }
-        return 0;
+        return countAddressNodes(globalVariables.get("${RedisSlaveAddr}"));
     }
     
     private int countAddressNodes(String addresses) {
-        if (!StringUtils.isNotBlank(addresses)) {
+        if (StringUtils.isBlank(addresses)) {
             return 0;
         }
         return (int) Arrays.stream(addresses.trim().split("\\s+"))
@@ -208,14 +196,13 @@ public class MasterNodeProcessingActor extends UntypedActor {
                 .count();
     }
     
-    private int getInstalledRedisRoleCount(Integer clusterId) {
+    private int getInstalledRedisWorkerCount(Integer clusterId) {
         ClusterServiceRoleInstanceService roleInstanceService =
                 SpringTool.getApplicationContext().getBean(ClusterServiceRoleInstanceService.class);
         List<ClusterServiceRoleInstanceEntity> roleInstances = roleInstanceService.lambdaQuery()
                 .eq(ClusterServiceRoleInstanceEntity::getClusterId, clusterId)
                 .eq(ClusterServiceRoleInstanceEntity::getServiceName, REDIS_SERVICE_NAME)
-                .in(ClusterServiceRoleInstanceEntity::getServiceRoleName,
-                        Arrays.asList(REDIS_MASTER_ROLE_NAME, REDIS_WORKER_ROLE_NAME))
+                .eq(ClusterServiceRoleInstanceEntity::getServiceRoleName, REDIS_WORKER_ROLE_NAME)
                 .eq(ClusterServiceRoleInstanceEntity::getServiceRoleState, ServiceRoleState.RUNNING)
                 .list();
         return roleInstances.size();
@@ -251,11 +238,11 @@ public class MasterNodeProcessingActor extends UntypedActor {
     }
     
     private String extractHost(String addresses) {
-        if (!StringUtils.isNotBlank(addresses)) {
+        if (StringUtils.isBlank(addresses)) {
             return null;
         }
         String[] split = addresses.trim().split("\\s+");
-        if (split.length == 0 || !StringUtils.isNotBlank(split[0])) {
+        if (split.length == 0 || StringUtils.isBlank(split[0])) {
             return null;
         }
         return split[0].split(":")[0];
