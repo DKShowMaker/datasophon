@@ -17,15 +17,13 @@
 
 package com.datasophon.api.master;
 
-import com.datasophon.api.load.GlobalVariables;
 import com.datasophon.api.master.handler.service.ServiceHandler;
 import com.datasophon.api.master.handler.service.ServiceStopHandler;
-import com.datasophon.api.service.ClusterInfoService;
 import com.datasophon.api.service.ClusterServiceRoleGroupConfigService;
 import com.datasophon.api.service.ClusterServiceRoleInstanceService;
 import com.datasophon.api.utils.ProcessUtils;
+import com.datasophon.api.utils.RedisClusterInstallUtils;
 import com.datasophon.api.utils.SpringTool;
-import com.datasophon.common.Constants;
 import com.datasophon.common.cache.CacheUtils;
 import com.datasophon.common.command.ExecuteServiceRoleCommand;
 import com.datasophon.common.command.RedisClusterNotifyCommand;
@@ -34,15 +32,11 @@ import com.datasophon.common.model.Generators;
 import com.datasophon.common.model.ServiceConfig;
 import com.datasophon.common.model.ServiceRoleInfo;
 import com.datasophon.common.utils.ExecResult;
-import com.datasophon.dao.entity.ClusterInfoEntity;
 import com.datasophon.dao.entity.ClusterServiceRoleGroupConfig;
 import com.datasophon.dao.entity.ClusterServiceRoleInstanceEntity;
 import com.datasophon.dao.enums.NeedRestart;
 import com.datasophon.dao.enums.ServiceRoleState;
 
-import org.apache.commons.lang3.StringUtils;
-
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,8 +51,6 @@ import akka.actor.UntypedActor;
 public class WorkerServiceActor extends UntypedActor {
     
     private static final Logger logger = LoggerFactory.getLogger(WorkerServiceActor.class);
-    
-    private static final String REDIS_SERVICE_NAME = "REDIS";
     
     private static final String REDIS_WORKER_ROLE_NAME = "RedisWorker";
     
@@ -176,7 +168,17 @@ public class WorkerServiceActor extends UntypedActor {
         if (!REDIS_WORKER_ROLE_NAME.equals(serviceRoleInfo.getName())) {
             return;
         }
-        if (!isAllRedisWorkerInstalled(serviceRoleInfo.getClusterId())) {
+        RedisClusterInstallUtils.RedisWorkerInstallProgress installProgress =
+                RedisClusterInstallUtils.getRedisWorkerInstallProgress(serviceRoleInfo.getClusterId());
+        if (!installProgress.isExpectedWorkerCountValid()) {
+            logger.warn("skip redis cluster notify because expected worker count is invalid, clusterId: {}",
+                    serviceRoleInfo.getClusterId());
+            return;
+        }
+        logger.info("redis worker install progress, clusterId: {}, installed: {}, expected: {}",
+                serviceRoleInfo.getClusterId(), installProgress.getInstalledWorkerCount(),
+                installProgress.getExpectedWorkerCount());
+        if (!installProgress.isReady()) {
             return;
         }
         ActorRef masterNodeProcessingActor = ActorUtils.getLocalActor(MasterNodeProcessingActor.class,
@@ -190,56 +192,6 @@ public class WorkerServiceActor extends UntypedActor {
         masterNodeProcessingActor.tell(notifyCommand, getSelf());
         logger.info("all redis workers installed, notify manager to init cluster, clusterId: {}",
                 serviceRoleInfo.getClusterId());
-    }
-    
-    private boolean isAllRedisWorkerInstalled(Integer clusterId) {
-        int expectedWorkerCount = getExpectedRedisWorkerCount(clusterId);
-        if (expectedWorkerCount <= 0) {
-            logger.warn("skip redis cluster notify because expected worker count is invalid, clusterId: {}", clusterId);
-            return false;
-        }
-        int installedWorkerCount = getInstalledRedisWorkerCount(clusterId);
-        logger.info("redis worker install progress, clusterId: {}, installed: {}, expected: {}", clusterId,
-                installedWorkerCount, expectedWorkerCount);
-        return installedWorkerCount >= expectedWorkerCount;
-    }
-    
-    private int getExpectedRedisWorkerCount(Integer clusterId) {
-        ClusterInfoService clusterInfoService = SpringTool.getApplicationContext().getBean(ClusterInfoService.class);
-        ClusterInfoEntity clusterInfo = clusterInfoService.getById(clusterId);
-        if (Objects.isNull(clusterInfo)) {
-            return 0;
-        }
-        
-        String hostMapKey = clusterInfo.getClusterCode() + Constants.UNDERLINE + Constants.SERVICE_ROLE_HOST_MAPPING;
-        HashMap<String, List<String>> hostMap = (HashMap<String, List<String>>) CacheUtils.get(hostMapKey);
-        if (Objects.nonNull(hostMap) && Objects.nonNull(hostMap.get(REDIS_WORKER_ROLE_NAME))) {
-            return hostMap.get(REDIS_WORKER_ROLE_NAME).size();
-        }
-        
-        Map<String, String> globalVariables = GlobalVariables.get(clusterId);
-        if (Objects.isNull(globalVariables)) {
-            return 0;
-        }
-        String workerAddress = globalVariables.get("${RedisSlaveAddr}");
-        if (!StringUtils.isNotBlank(workerAddress)) {
-            return 0;
-        }
-        return (int) Arrays.stream(workerAddress.trim().split("\\s+"))
-                .filter(StringUtils::isNotBlank)
-                .count();
-    }
-    
-    private int getInstalledRedisWorkerCount(Integer clusterId) {
-        ClusterServiceRoleInstanceService roleInstanceService =
-                SpringTool.getApplicationContext().getBean(ClusterServiceRoleInstanceService.class);
-        return roleInstanceService.lambdaQuery()
-                .eq(ClusterServiceRoleInstanceEntity::getClusterId, clusterId)
-                .eq(ClusterServiceRoleInstanceEntity::getServiceName, REDIS_SERVICE_NAME)
-                .eq(ClusterServiceRoleInstanceEntity::getServiceRoleName, REDIS_WORKER_ROLE_NAME)
-                .eq(ClusterServiceRoleInstanceEntity::getServiceRoleState, ServiceRoleState.RUNNING)
-                .list()
-                .size();
     }
     
 }

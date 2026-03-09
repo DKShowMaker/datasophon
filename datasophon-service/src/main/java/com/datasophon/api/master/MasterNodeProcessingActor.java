@@ -2,7 +2,7 @@ package com.datasophon.api.master;
 
 import com.datasophon.api.load.GlobalVariables;
 import com.datasophon.api.service.ClusterInfoService;
-import com.datasophon.api.service.ClusterServiceRoleInstanceService;
+import com.datasophon.api.utils.RedisClusterInstallUtils;
 import com.datasophon.api.utils.SpringTool;
 import com.datasophon.common.Constants;
 import com.datasophon.common.cache.CacheUtils;
@@ -12,8 +12,6 @@ import com.datasophon.common.command.RedisClusterNotifyCommand;
 import com.datasophon.common.utils.ExecResult;
 import com.datasophon.common.utils.OlapUtils;
 import com.datasophon.dao.entity.ClusterInfoEntity;
-import com.datasophon.dao.entity.ClusterServiceRoleInstanceEntity;
-import com.datasophon.dao.enums.ServiceRoleState;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -22,7 +20,6 @@ import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,56 +153,15 @@ public class MasterNodeProcessingActor extends UntypedActor {
     }
     
     private boolean isRedisClusterReady(Integer clusterId) {
-        int expectedWorkerCount = getExpectedRedisWorkerCount(clusterId);
-        if (expectedWorkerCount <= 0) {
+        RedisClusterInstallUtils.RedisWorkerInstallProgress installProgress =
+                RedisClusterInstallUtils.getRedisWorkerInstallProgress(clusterId);
+        if (!installProgress.isExpectedWorkerCountValid()) {
             logger.warn("Redis cluster expected worker count is invalid, clusterId: {}", clusterId);
             return false;
         }
-        int installedWorkerCount = getInstalledRedisWorkerCount(clusterId);
         logger.info("Redis worker install progress, clusterId: {}, installed: {}, expected: {}", clusterId,
-                installedWorkerCount, expectedWorkerCount);
-        return installedWorkerCount >= expectedWorkerCount;
-    }
-    
-    private int getExpectedRedisWorkerCount(Integer clusterId) {
-        ClusterInfoService clusterInfoService = SpringTool.getApplicationContext().getBean(ClusterInfoService.class);
-        ClusterInfoEntity clusterInfo = clusterInfoService.getById(clusterId);
-        if (Objects.isNull(clusterInfo)) {
-            return 0;
-        }
-        
-        String hostMapKey = clusterInfo.getClusterCode() + Constants.UNDERLINE + Constants.SERVICE_ROLE_HOST_MAPPING;
-        HashMap<String, List<String>> hostMap = (HashMap<String, List<String>>) CacheUtils.get(hostMapKey);
-        if (Objects.nonNull(hostMap) && Objects.nonNull(hostMap.get(REDIS_WORKER_ROLE_NAME))) {
-            return hostMap.get(REDIS_WORKER_ROLE_NAME).size();
-        }
-        
-        Map<String, String> globalVariables = GlobalVariables.get(clusterId);
-        if (Objects.isNull(globalVariables)) {
-            return 0;
-        }
-        return countAddressNodes(globalVariables.get("${RedisSlaveAddr}"));
-    }
-    
-    private int countAddressNodes(String addresses) {
-        if (StringUtils.isBlank(addresses)) {
-            return 0;
-        }
-        return (int) Arrays.stream(addresses.trim().split("\\s+"))
-                .filter(StringUtils::isNotBlank)
-                .count();
-    }
-    
-    private int getInstalledRedisWorkerCount(Integer clusterId) {
-        ClusterServiceRoleInstanceService roleInstanceService =
-                SpringTool.getApplicationContext().getBean(ClusterServiceRoleInstanceService.class);
-        List<ClusterServiceRoleInstanceEntity> roleInstances = roleInstanceService.lambdaQuery()
-                .eq(ClusterServiceRoleInstanceEntity::getClusterId, clusterId)
-                .eq(ClusterServiceRoleInstanceEntity::getServiceName, REDIS_SERVICE_NAME)
-                .eq(ClusterServiceRoleInstanceEntity::getServiceRoleName, REDIS_WORKER_ROLE_NAME)
-                .eq(ClusterServiceRoleInstanceEntity::getServiceRoleState, ServiceRoleState.RUNNING)
-                .list();
-        return roleInstances.size();
+                installProgress.getInstalledWorkerCount(), installProgress.getExpectedWorkerCount());
+        return installProgress.isReady();
     }
     
     private String resolveRedisClusterLeaderHost(Integer clusterId) {
