@@ -28,6 +28,22 @@ check_all_nodes() {
     return 0
 }
 
+# Check if cluster is already initialized
+check_cluster_initialized() {
+    first_master=$(echo "${RedisMasterAddr}" | awk '{print $1}')
+    if [ -z "$first_master" ]; then
+        return 1
+    fi
+    host=$(echo "$first_master" | cut -d ":" -f 1)
+    port=$(echo "$first_master" | cut -d ":" -f 2)
+    cluster_info=$($REDIS_HOME/bin/redis-cli -h $host -p $port cluster info 2>/dev/null || true)
+    if echo "$cluster_info" | grep -q "cluster_state:ok"; then
+        echo "Redis Cluster already initialized."
+        return 0
+    fi
+    return 1
+}
+
 # Create cluster (auto-assign Slave)
 create_cluster() {
     echo "Creating Redis Cluster with auto-assigned slaves..."
@@ -75,6 +91,11 @@ main() {
     if ! check_all_nodes; then
         echo "Not all Redis nodes are running. Cluster creation aborted."
         return 1
+    fi
+    
+    if check_cluster_initialized; then
+        echo "Skip cluster creation."
+        return 0
     fi
     
     echo ""
