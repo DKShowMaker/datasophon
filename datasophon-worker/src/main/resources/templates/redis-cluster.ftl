@@ -9,6 +9,34 @@ ALL_NODES="${RedisMasterAddr} ${RedisSlaveAddr}"
 # Redis installation path
 REDIS_HOME="${redisInstallPath}/redis"
 
+# Get the fixed leader node (first RedisWorker host)
+get_cluster_leader_host() {
+    echo "${RedisSlaveAddr}" | awk '{print $1}' | cut -d ":" -f 1
+}
+
+# Only the fixed leader should execute cluster create
+is_local_cluster_leader() {
+    leader_host=$(get_cluster_leader_host)
+    if [ -z "$leader_host" ]; then
+        echo "Error: No Redis worker host found for cluster leader."
+        return 1
+    fi
+
+    local_host=$(hostname)
+    local_fqdn=$(hostname -f 2>/dev/null || true)
+    if [ "$local_host" = "$leader_host" ] || [ "$local_fqdn" = "$leader_host" ]; then
+        return 0
+    fi
+
+    # Fallback: compare IP when leader host is configured as IP/FQDN
+    leader_ip=$(getent hosts "$leader_host" 2>/dev/null | awk 'NR==1{print $1}')
+    local_ips=$(hostname -I 2>/dev/null || true)
+    if [ -n "$leader_ip" ] && [ -n "$local_ips" ] && echo "$local_ips" | grep -qw "$leader_ip"; then
+        return 0
+    fi
+    return 1
+}
+
 # Check if all nodes are running
 check_all_nodes() {
     echo "Checking if all Redis nodes are running..."
@@ -85,7 +113,13 @@ create_cluster() {
 main() {
     echo "=== Redis Cluster Auto-Setup Script ==="
     echo "Install Path: $REDIS_HOME"
+    echo "Cluster Leader Host: $(get_cluster_leader_host)"
     echo ""
+
+    if ! is_local_cluster_leader; then
+        echo "Skip cluster creation on non-leader node."
+        return 0
+    fi
     
     # Check node status
     if ! check_all_nodes; then
