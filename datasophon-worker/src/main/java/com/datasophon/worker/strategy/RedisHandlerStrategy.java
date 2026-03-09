@@ -1,22 +1,23 @@
 package com.datasophon.worker.strategy;
 
 import com.datasophon.common.Constants;
+import com.datasophon.common.command.RedisClusterNotifyCommand;
 import com.datasophon.common.command.ServiceRoleOperateCommand;
 import com.datasophon.common.enums.CommandType;
 import com.datasophon.common.utils.ExecResult;
 import com.datasophon.common.utils.ShellUtils;
 import com.datasophon.worker.handler.ServiceHandler;
+import com.datasophon.worker.utils.ActorUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
 import java.sql.SQLException;
 import java.util.Objects;
 
+import akka.actor.ActorRef;
+import cn.hutool.core.net.NetUtil;
+
 public class RedisHandlerStrategy extends AbstractHandlerStrategy implements ServiceRoleStrategy {
-    
-    private static final int REDIS_CLUSTER_INIT_MAX_RETRY = 12;
-    
-    private static final long REDIS_CLUSTER_INIT_RETRY_INTERVAL_MS = 5000L;
     
     public RedisHandlerStrategy(String serviceName, String serviceRoleName) {
         super(serviceName, serviceRoleName);
@@ -43,12 +44,7 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
                 if (!exporterResult.getExecResult()) {
                     return withFailureContext("redis-exporter", exporterResult);
                 }
-                if (shouldInitRedisCluster(command)) {
-                    ExecResult clusterResult = initRedisClusterWithRetry(workPath);
-                    if (!clusterResult.getExecResult()) {
-                        return withFailureContext("redis-cluster.sh", clusterResult);
-                    }
-                }
+                notifyRedisInstallCompleted(command);
                 break;
             
             case START_SERVICE:
@@ -112,38 +108,28 @@ public class RedisHandlerStrategy extends AbstractHandlerStrategy implements Ser
         return execRedisExporter(workPath, "restart", exporterRole);
     }
     
-    private boolean shouldInitRedisCluster(ServiceRoleOperateCommand command) {
-        return "RedisWorker".equals(command.getServiceRoleName());
-    }
-    
-    private ExecResult initRedisClusterWithRetry(String workPath) {
-        ExecResult lastResult = null;
-        for (int i = 0; i < REDIS_CLUSTER_INIT_MAX_RETRY; i++) {
-            lastResult = ShellUtils.exceShell("bash " + workPath + "/redis-cluster.sh");
-            if (lastResult.getExecResult()) {
-                return lastResult;
-            }
-            if (!isNodeNotReady(lastResult)) {
-                return lastResult;
-            }
-            try {
-                Thread.sleep(REDIS_CLUSTER_INIT_RETRY_INTERVAL_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                ExecResult result = new ExecResult();
-                result.setExecResult(false);
-                result.setExecOut("redis-cluster init interrupted: " + e.getMessage());
-                return result;
-            }
+    private void notifyRedisInstallCompleted(ServiceRoleOperateCommand command) {
+        if (!"RedisMaster".equals(command.getServiceRoleName()) && !"RedisWorker".equals(command.getServiceRoleName())) {
+            return;
         }
-        return Objects.nonNull(lastResult) ? lastResult : withFailureContext("redis-cluster.sh", null);
-    }
-    
-    private boolean isNodeNotReady(ExecResult result) {
-        String execOut = StringUtils.defaultString(result.getExecOut()).toLowerCase();
-        return execOut.contains("not all redis nodes are running")
-                || execOut.contains("cluster creation aborted")
-                || execOut.contains("failed to create redis cluster");
+        try {
+            ActorRef masterNodeProcessingActor = ActorUtils.getRemoteActor(command.getManagerHost(), "masterNodeProcessingActor");
+            if (Objects.isNull(masterNodeProcessingActor)) {
+                logger.warn("masterNodeProcessingActor not found on manager host: {}", command.getManagerHost());
+                return;
+            }
+            RedisClusterNotifyCommand notifyCommand = new RedisClusterNotifyCommand();
+            notifyCommand.setClusterId(command.getClusterId());
+            notifyCommand.setServiceName(command.getServiceName());
+            notifyCommand.setServiceRoleName(command.getServiceRoleName());
+            notifyCommand.setDecompressPackageName(command.getDecompressPackageName());
+            notifyCommand.setHostname(NetUtil.getLocalhostStr());
+            masterNodeProcessingActor.tell(notifyCommand, ActorRef.noSender());
+            logger.info("notify manager redis install completed, role: {}, host: {}", command.getServiceRoleName(),
+                    notifyCommand.getHostname());
+        } catch (Exception e) {
+            logger.warn("notify manager redis install completed failed: {}", e.getMessage());
+        }
     }
     
     private ExecResult execRedisExporter(String workPath, String action, String exporterRole) {

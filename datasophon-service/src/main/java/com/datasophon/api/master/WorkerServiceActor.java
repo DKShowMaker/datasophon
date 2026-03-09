@@ -25,6 +25,7 @@ import com.datasophon.api.utils.ProcessUtils;
 import com.datasophon.api.utils.SpringTool;
 import com.datasophon.common.cache.CacheUtils;
 import com.datasophon.common.command.ExecuteServiceRoleCommand;
+import com.datasophon.common.command.RedisClusterNotifyCommand;
 import com.datasophon.common.enums.CommandType;
 import com.datasophon.common.model.Generators;
 import com.datasophon.common.model.ServiceConfig;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 
 public class WorkerServiceActor extends UntypedActor {
@@ -89,6 +91,7 @@ public class WorkerServiceActor extends UntypedActor {
                         if (Objects.nonNull(execResult) && execResult.getExecResult()) {
                             // install success
                             ProcessUtils.saveServiceInstallInfo(serviceRoleInfo);
+                            notifyRedisClusterInit(serviceRoleInfo);
                             logger.info("{} install success in {}", serviceRoleInfo.getName(),
                                     serviceRoleInfo.getHostname());
                         }
@@ -153,6 +156,24 @@ public class WorkerServiceActor extends UntypedActor {
         } else {
             unhandled(message);
         }
+    }
+    
+    private void notifyRedisClusterInit(ServiceRoleInfo serviceRoleInfo) {
+        if (!"REDIS".equalsIgnoreCase(serviceRoleInfo.getParentName())) {
+            return;
+        }
+        if (!"RedisMaster".equals(serviceRoleInfo.getName()) && !"RedisWorker".equals(serviceRoleInfo.getName())) {
+            return;
+        }
+        ActorRef masterNodeProcessingActor = ActorUtils.getLocalActor(MasterNodeProcessingActor.class,
+                ActorUtils.getActorRefName(MasterNodeProcessingActor.class));
+        RedisClusterNotifyCommand notifyCommand = new RedisClusterNotifyCommand();
+        notifyCommand.setClusterId(serviceRoleInfo.getClusterId());
+        notifyCommand.setServiceName(serviceRoleInfo.getParentName());
+        notifyCommand.setServiceRoleName(serviceRoleInfo.getName());
+        notifyCommand.setHostname(serviceRoleInfo.getHostname());
+        notifyCommand.setDecompressPackageName(serviceRoleInfo.getDecompressPackageName());
+        masterNodeProcessingActor.tell(notifyCommand, getSelf());
     }
     
 }

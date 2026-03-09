@@ -53,6 +53,8 @@ public class ServiceStartHandler extends ServiceHandler {
         ServiceRoleOperateCommand serviceRoleOperateCommand = new ServiceRoleOperateCommand();
         serviceRoleOperateCommand.setServiceName(serviceRoleInfo.getParentName());
         serviceRoleOperateCommand.setServiceRoleName(serviceRoleInfo.getName());
+        serviceRoleOperateCommand.setClusterId(serviceRoleInfo.getClusterId());
+        serviceRoleOperateCommand.setHostCommandId(serviceRoleInfo.getHostCommandId());
         serviceRoleOperateCommand.setStartRunner(serviceRoleInfo.getStartRunner());
         serviceRoleOperateCommand.setDecompressPackageName(serviceRoleInfo.getDecompressPackageName());
         serviceRoleOperateCommand.setStatusRunner(serviceRoleInfo.getStatusRunner());
