@@ -3,6 +3,21 @@
 # Redis installation path (script is in bin/ folder, so redis/ is in parent directory)
 REDIS_HOME="${redisInstallPath}/redis"
 
+# Exporter control script (generated into the same bin/ directory)
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+EXPORTER_CTL="$SCRIPT_DIR/redis-exporter-control.sh"
+
+run_exporter() {
+    local action=$1
+    local role=$2
+    if [ ! -f "$EXPORTER_CTL" ]; then
+        echo "ERROR: redis-exporter-control.sh not found: $EXPORTER_CTL"
+        return 1
+    fi
+    bash "$EXPORTER_CTL" "$action" "$role"
+    return $?
+}
+
 # Define start and stop commands (binaries are in parent directory)
 START_MASTER="$REDIS_HOME/bin/redis-server $REDIS_HOME/cluster/conf/redis-master.conf"
 START_SLAVE="$REDIS_HOME/bin/redis-server $REDIS_HOME/cluster/conf/redis-slave.conf"
@@ -36,6 +51,10 @@ start_master() {
 
     status=$($STATUS_MASTER)
     if [ "$status" == "PONG" ]; then
+        if ! run_exporter start master; then
+            echo "ERROR: Redis Master exporter failed to start."
+            return 1
+        fi
         echo "Redis Master started successfully."
         return 0
     else
@@ -53,6 +72,10 @@ start_slave() {
 
     status=$($STATUS_SLAVE)
     if [ "$status" == "PONG" ]; then
+        if ! run_exporter start slave; then
+            echo "ERROR: Redis Slave exporter failed to start."
+            return 1
+        fi
         echo "Redis Slave started successfully."
         return 0
     else
@@ -73,6 +96,10 @@ stop_master() {
         echo "WARNING: Redis Master is still running."
         return 1
     else
+        if ! run_exporter stop master; then
+            echo "ERROR: Redis Master exporter failed to stop."
+            return 1
+        fi
         echo "Redis Master stopped."
         return 0
     fi
@@ -90,6 +117,10 @@ stop_slave() {
         echo "WARNING: Redis Slave is still running."
         return 1
     else
+        if ! run_exporter stop slave; then
+            echo "ERROR: Redis Slave exporter failed to stop."
+            return 1
+        fi
         echo "Redis Slave stopped."
         return 0
     fi
