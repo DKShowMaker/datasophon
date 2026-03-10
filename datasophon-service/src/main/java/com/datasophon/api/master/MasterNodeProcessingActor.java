@@ -45,7 +45,7 @@ public class MasterNodeProcessingActor extends UntypedActor {
     
     private static final String REDIS_WORKER_ROLE_NAME = "RedisWorker";
     
-    private static final int REDIS_CLUSTER_INIT_MAX_RETRY = 12;
+    private static final int REDIS_CLUSTER_INIT_MAX_RETRY = 3;
     
     private static final long REDIS_CLUSTER_INIT_RETRY_INTERVAL_SECONDS = 5L;
     
