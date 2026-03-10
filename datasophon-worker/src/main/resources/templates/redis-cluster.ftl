@@ -1,45 +1,50 @@
 #!/bin/bash
 
 # Redis Cluster Auto Setup Script
-# Automatically assign Slave nodes using --cluster-replicas 1
-
-# All node addresses (Master and Worker)
-ALL_NODES="${RedisMasterAddr} ${RedisSlaveAddr}"
+# Automatically assign Slave nodes using --cluster-replicas
 
 # Redis installation path
 REDIS_HOME="${redisInstallPath}/redis"
 
-# Get the fixed leader node (first RedisWorker host)
-get_cluster_leader_host() {
-    echo "${RedisSlaveAddr}" | awk '{print $1}' | cut -d ":" -f 1
+# Wait policy for node startup
+NODE_READY_MAX_RETRY=6
+NODE_READY_RETRY_INTERVAL_SECONDS=10
+
+# Normalize and deduplicate host:port list
+normalize_nodes() {
+    echo "${RedisMasterAddr} ${RedisSlaveAddr}" | awk '{
+        for (i = 1; i <= NF; i++) {
+            if ($i != "" && !seen[$i]++) {
+                print $i
+            }
+        }
+    }'
 }
 
-# Only the fixed leader should execute cluster create
-is_local_cluster_leader() {
-    leader_host=$(get_cluster_leader_host)
-    if [ -z "$leader_host" ]; then
-        echo "Error: No Redis worker host found for cluster leader."
-        return 1
-    fi
+# All node addresses (Master and Worker)
+ALL_NODES=$(normalize_nodes | xargs)
 
-    local_host=$(hostname)
-    local_fqdn=$(hostname -f 2>/dev/null || true)
-    if [ "$local_host" = "$leader_host" ] || [ "$local_fqdn" = "$leader_host" ]; then
-        return 0
+count_address_nodes() {
+    local addresses="$1"
+    if [ -z "$addresses" ]; then
+        echo 0
+        return
     fi
+    echo "$addresses" | awk '{print NF}'
+}
 
-    # Fallback: compare IP when leader host is configured as IP/FQDN
-    leader_ip=$(getent hosts "$leader_host" 2>/dev/null | awk 'NR==1{print $1}')
-    local_ips=$(hostname -I 2>/dev/null || true)
-    if [ -n "$leader_ip" ] && [ -n "$local_ips" ] && echo "$local_ips" | grep -qw "$leader_ip"; then
-        return 0
-    fi
-    return 1
+get_first_master_node() {
+    echo "${RedisMasterAddr}" | awk '{print $1}'
 }
 
 # Check if all nodes are running
 check_all_nodes() {
     echo "Checking if all Redis nodes are running..."
+    
+    if [ -z "$ALL_NODES" ]; then
+        echo "Error: ALL_NODES is empty."
+        return 1
+    fi
     
     for node in $ALL_NODES; do
         host=$(echo "$node" | cut -d ":" -f 1)
@@ -56,9 +61,23 @@ check_all_nodes() {
     return 0
 }
 
+wait_all_nodes_running() {
+    retry=0
+    while [ $retry -lt $NODE_READY_MAX_RETRY ]; do
+        if check_all_nodes; then
+            return 0
+        fi
+        retry=$((retry + 1))
+        echo "Retry $retry/$NODE_READY_MAX_RETRY after ${NODE_READY_RETRY_INTERVAL_SECONDS}s..."
+        sleep $NODE_READY_RETRY_INTERVAL_SECONDS
+    done
+    echo "Error: Redis nodes are not all running after retries."
+    return 1
+}
+
 # Check if cluster is already initialized
 check_cluster_initialized() {
-    first_master=$(echo "${RedisMasterAddr}" | awk '{print $1}')
+    first_master=$(get_first_master_node)
     if [ -z "$first_master" ]; then
         return 1
     fi
@@ -80,11 +99,15 @@ create_cluster() {
     # Calculate --cluster-replicas value
     # If there are 3 Masters and 3 Slaves, then replica=1
     # Formula: slave count / master count
-    MASTER_COUNT=$(echo "${RedisMasterAddr}" | wc -w)
-    SLAVE_COUNT=$(echo "${RedisSlaveAddr}" | wc -w)
+    MASTER_COUNT=$(count_address_nodes "${RedisMasterAddr}")
+    SLAVE_COUNT=$(count_address_nodes "${RedisSlaveAddr}")
     
     if [ "$MASTER_COUNT" -eq 0 ]; then
         echo "Error: No master nodes found."
+        return 1
+    fi
+    if [ "$MASTER_COUNT" -lt 3 ]; then
+        echo "Error: Redis Cluster requires at least 3 master nodes, current: $MASTER_COUNT."
         return 1
     fi
     
@@ -95,7 +118,7 @@ create_cluster() {
     echo "Replicas per master: $REPLICAS"
     
     # Cluster creation command
-    CREATE_CMD="echo yes | $REDIS_HOME/bin/redis-cli --cluster create $ALL_NODES --cluster-replicas $REPLICAS"
+    CREATE_CMD="$REDIS_HOME/bin/redis-cli --cluster create $ALL_NODES --cluster-replicas $REPLICAS --cluster-yes"
     echo "Executing: $CREATE_CMD"
     
     eval "$CREATE_CMD"
@@ -113,16 +136,13 @@ create_cluster() {
 main() {
     echo "=== Redis Cluster Auto-Setup Script ==="
     echo "Install Path: $REDIS_HOME"
-    echo "Cluster Leader Host: $(get_cluster_leader_host)"
+    echo "RedisMasterAddr: ${RedisMasterAddr}"
+    echo "RedisSlaveAddr: ${RedisSlaveAddr}"
+    echo "All nodes: $ALL_NODES"
     echo ""
-
-    if ! is_local_cluster_leader; then
-        echo "Skip cluster creation on non-leader node."
-        return 0
-    fi
     
-    # Check node status
-    if ! check_all_nodes; then
+    # Wait all nodes status
+    if ! wait_all_nodes_running; then
         echo "Not all Redis nodes are running. Cluster creation aborted."
         return 1
     fi
