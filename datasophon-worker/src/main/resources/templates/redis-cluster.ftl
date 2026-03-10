@@ -6,10 +6,8 @@
 # Redis installation path
 REDIS_HOME="${redisInstallPath}/redis"
 
-# Wait policy for node startup
-NODE_READY_MAX_RETRY=6
-NODE_READY_RETRY_INTERVAL_SECONDS=10
-
+# Run mode: check | create
+MODE=${"$"}{1:-create}
 # Normalize and deduplicate host:port list
 normalize_nodes() {
     echo "${RedisMasterAddr} ${RedisSlaveAddr}" | awk '{
@@ -59,20 +57,6 @@ check_all_nodes() {
     done
     
     return 0
-}
-
-wait_all_nodes_running() {
-    retry=0
-    while [ $retry -lt $NODE_READY_MAX_RETRY ]; do
-        if check_all_nodes; then
-            return 0
-        fi
-        retry=$((retry + 1))
-        echo "Retry $retry/$NODE_READY_MAX_RETRY after ${NODE_READY_RETRY_INTERVAL_SECONDS}s..."
-        sleep $NODE_READY_RETRY_INTERVAL_SECONDS
-    done
-    echo "Error: Redis nodes are not all running after retries."
-    return 1
 }
 
 # Check if cluster is already initialized
@@ -141,32 +125,43 @@ main() {
     echo "All nodes: $ALL_NODES"
     echo ""
     
-    # Wait all nodes status
-    if ! wait_all_nodes_running; then
-        echo "Not all Redis nodes are running. Cluster creation aborted."
-        return 1
-    fi
-    
-    if check_cluster_initialized; then
-        echo "Skip cluster creation."
-        return 0
-    fi
-    
-    echo ""
-    echo "All nodes are running. Proceeding with cluster creation..."
-    echo ""
-    
-    # Create cluster
-    if create_cluster; then
-        echo ""
-        echo "=== Redis Cluster Setup Complete ==="
-        echo "You can check cluster status with: $REDIS_HOME/bin/redis-cli -c -p ${redisMasterPort} cluster nodes"
-        return 0
-    else
-        echo ""
-        echo "=== Redis Cluster Setup Failed ==="
-        return 1
-    fi
+    case "$MODE" in
+        check)
+            if ! check_all_nodes; then
+                echo "Not all Redis nodes are running."
+                return 1
+            fi
+            if check_cluster_initialized; then
+                echo "Redis Cluster already initialized."
+                return 0
+            fi
+            echo "All nodes are running and cluster is not initialized."
+            return 0
+            ;;
+        create|*)
+            if ! check_all_nodes; then
+                echo "Not all Redis nodes are running. Cluster creation aborted."
+                return 1
+            fi
+            if check_cluster_initialized; then
+                echo "Skip cluster creation."
+                return 0
+            fi
+            echo ""
+            echo "All nodes are running. Proceeding with cluster creation..."
+            echo ""
+            if create_cluster; then
+                echo ""
+                echo "=== Redis Cluster Setup Complete ==="
+                echo "You can check cluster status with: $REDIS_HOME/bin/redis-cli -c -p ${redisMasterPort} cluster nodes"
+                return 0
+            else
+                echo ""
+                echo "=== Redis Cluster Setup Failed ==="
+                return 1
+            fi
+            ;;
+    esac
 }
 
 # Execute main function

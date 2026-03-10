@@ -49,6 +49,10 @@ public class MasterNodeProcessingActor extends UntypedActor {
     
     private static final long REDIS_CLUSTER_INIT_RETRY_INTERVAL_SECONDS = 5L;
     
+    private static final int REDIS_CLUSTER_NODE_CHECK_MAX_RETRY = 6;
+    
+    private static final long REDIS_CLUSTER_NODE_CHECK_RETRY_INTERVAL_SECONDS = 10L;
+    
     @Override
     public void onReceive(Object message) throws Throwable {
         logger.info("MasterNodeProcessingActor receive message: " + JSONUtil.toJsonStr(message));
@@ -208,9 +212,13 @@ public class MasterNodeProcessingActor extends UntypedActor {
         ExecResult execResult = null;
         int tryTimes = 0;
         while (tryTimes < REDIS_CLUSTER_INIT_MAX_RETRY) {
-            execResult = initRedisCluster(leaderHost, decompressPackageName);
-            if (Objects.nonNull(execResult) && execResult.getExecResult()) {
-                return execResult;
+            if (!waitForRedisClusterReady(leaderHost, decompressPackageName)) {
+                logger.warn("Redis cluster init skipped because nodes are not ready, tryTimes: {}", tryTimes);
+            } else {
+                execResult = initRedisCluster(leaderHost, decompressPackageName);
+                if (Objects.nonNull(execResult) && execResult.getExecResult()) {
+                    return execResult;
+                }
             }
             try {
                 TimeUnit.SECONDS.sleep(REDIS_CLUSTER_INIT_RETRY_INTERVAL_SECONDS);
@@ -226,7 +234,29 @@ public class MasterNodeProcessingActor extends UntypedActor {
         return buildFailedResult("redis-cluster init failed");
     }
     
+    private boolean waitForRedisClusterReady(String leaderHost, String decompressPackageName) {
+        int tryTimes = 0;
+        while (tryTimes < REDIS_CLUSTER_NODE_CHECK_MAX_RETRY) {
+            ExecResult checkResult = runRedisClusterScript(leaderHost, decompressPackageName, "check");
+            if (Objects.nonNull(checkResult) && checkResult.getExecResult()) {
+                return true;
+            }
+            try {
+                TimeUnit.SECONDS.sleep(REDIS_CLUSTER_NODE_CHECK_RETRY_INTERVAL_SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            tryTimes++;
+        }
+        return false;
+    }
+    
     private ExecResult initRedisCluster(String leaderHost, String decompressPackageName) {
+        return runRedisClusterScript(leaderHost, decompressPackageName, "create");
+    }
+    
+    private ExecResult runRedisClusterScript(String leaderHost, String decompressPackageName, String mode) {
         try {
             ActorRef execCmdActor = ActorUtils.getRemoteActor(leaderHost, "executeCmdActor");
             if (Objects.isNull(execCmdActor)) {
@@ -237,6 +267,9 @@ public class MasterNodeProcessingActor extends UntypedActor {
             commands.add("bash");
             commands.add(Constants.INSTALL_PATH + Constants.SLASH + decompressPackageName + Constants.SLASH
                     + "redis-cluster.sh");
+            if (StringUtils.isNotBlank(mode)) {
+                commands.add(mode);
+            }
             command.setCommands(commands);
             Timeout timeout = new Timeout(Duration.create(120, TimeUnit.SECONDS));
             Future<Object> future = Patterns.ask(execCmdActor, command, timeout);
