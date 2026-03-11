@@ -29,7 +29,6 @@ import com.datasophon.dao.entity.ClusterServiceRoleInstanceEntity;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,7 +91,7 @@ public class MinioHandlerStrategy extends ServiceHandlerAbstract implements Serv
             templates.add(DEFAULT_TEMPLATE);
         }
         
-        String apiPort = resolvePort(apiPortConfig, list);
+        String apiPort = resolvePort(apiPortConfig);
         List<String> hosts = resolveHosts(clusterId);
         
         if (CollectionUtils.isEmpty(hosts)) {
@@ -165,17 +164,9 @@ public class MinioHandlerStrategy extends ServiceHandlerAbstract implements Serv
         return new ArrayList<>();
     }
     
-    private String resolvePort(ServiceConfig apiPortConfig, List<ServiceConfig> list) {
+    private String resolvePort(ServiceConfig apiPortConfig) {
         if (Objects.nonNull(apiPortConfig) && Objects.nonNull(apiPortConfig.getValue())) {
             return String.valueOf(apiPortConfig.getValue());
-        }
-        if (CollectionUtils.isEmpty(list)) {
-            return null;
-        }
-        for (ServiceConfig config : list) {
-            if (API_PORT.equals(config.getName()) && Objects.nonNull(config.getValue())) {
-                return String.valueOf(config.getValue());
-            }
         }
         return null;
     }
@@ -183,21 +174,22 @@ public class MinioHandlerStrategy extends ServiceHandlerAbstract implements Serv
     private List<String> resolveHosts(Integer clusterId) {
         ClusterInfoEntity clusterInfo = ProcessUtils.getClusterInfo(clusterId);
         if (Objects.isNull(clusterInfo)) {
-            return null;
+            return new ArrayList<>();
         }
         String hostMapKey = clusterInfo.getClusterCode() + Constants.UNDERLINE + Constants.SERVICE_ROLE_HOST_MAPPING;
-        HashMap<String, List<String>> map = (HashMap<String, List<String>>) CacheUtils.get(hostMapKey);
+        Map<String, List<String>> map = (Map<String, List<String>>) CacheUtils.get(hostMapKey);
         if (Objects.isNull(map)) {
-            return null;
+            return new ArrayList<>();
         }
-        return map.get(ROLE_NAME);
+        List<String> hosts = map.get(ROLE_NAME);
+        return Objects.nonNull(hosts) ? hosts : new ArrayList<>();
     }
     
     private boolean containsHostPlaceholder(String value) {
         if (StringUtils.isBlank(value)) {
             return false;
         }
-        return value.contains("{host}") || value.contains("${host}");
+        return value.contains("{host}");
     }
     
     private List<String> replacePortOnly(List<String> templates, String apiPort) {
@@ -217,16 +209,13 @@ public class MinioHandlerStrategy extends ServiceHandlerAbstract implements Serv
         if (StringUtils.isBlank(value) || StringUtils.isBlank(host)) {
             return value;
         }
-        return value.replace("{host}", host).replace("${host}", host);
+        return value.replace("{host}", host);
     }
     
     private String replacePort(String value, String apiPort) {
         if (StringUtils.isBlank(value) || StringUtils.isBlank(apiPort)) {
             return value;
         }
-        return value.replace("{apiPort}", apiPort)
-                .replace("${apiPort}", apiPort)
-                .replace("{port}", apiPort)
-                .replace("${port}", apiPort);
+        return value.replace("{apiPort}", apiPort);
     }
 }
