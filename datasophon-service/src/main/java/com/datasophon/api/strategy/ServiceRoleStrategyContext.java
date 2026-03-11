@@ -63,6 +63,7 @@ public class ServiceRoleStrategyContext {
         strategyMap.put("FLINK", new FlinkHandlerStrategy());
         strategyMap.put("KYUUBI", new KyuubiServerHandlerStrategy());
         strategyMap.put("REDIS", new RedisHandlerStrategy());
+        strategyMap.put("MINIO", new MinioHandlerStrategy());
         
         // serviceNameMap
         serviceNameMap.put("NameNode", "HDFS");
@@ -99,6 +100,7 @@ public class ServiceRoleStrategyContext {
         serviceNameMap.put("KYUUBI", "KYUUBI");
         serviceNameMap.put("RedisMaster", "REDIS");
         serviceNameMap.put("RedisWorker", "REDIS");
+        serviceNameMap.put("MINIO", "MINIO");
         
     }
     
