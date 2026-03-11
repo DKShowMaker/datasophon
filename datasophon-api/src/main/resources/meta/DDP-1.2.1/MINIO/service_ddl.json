@@ -16,7 +16,7 @@
       "sortNum": 1,
       "logFile": "minio.log",
       "metricsPath": "/minio/prometheus/metrics",
-      "jmxPort": 11111,
+      "jmxPort": 9000,
       "startRunner": {
         "timeout": "60",
         "program": "bin/start.sh",
