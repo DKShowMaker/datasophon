@@ -72,7 +72,7 @@ public class InstallServiceHandler {
         this.frameCode = frameCode;
         this.serviceName = serviceName;
         this.serviceRoleName = serviceRoleName;
-        String loggerName = String.format("%s-%s-%s-%s", TaskConstants.TASK_LOG_LOGGER_NAME, frameCode, serviceName,
+        String loggerName = String.format("%s-%s-%s", TaskConstants.TASK_LOG_LOGGER_NAME, serviceName,
                 serviceRoleName);
         logger = LoggerFactory.getLogger(loggerName);
     }
