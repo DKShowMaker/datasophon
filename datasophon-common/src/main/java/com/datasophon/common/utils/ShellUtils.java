@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import cn.hutool.core.util.StrUtil;
+
 public class ShellUtils {
     
     private static ProcessBuilder processBuilder = new ProcessBuilder();
@@ -180,7 +182,10 @@ public class ShellUtils {
                     stringBuffer.append(line);
                     stringBuffer.append(System.lineSeparator());
                 }
-                logger.info(stringBuffer.toString());
+                String infoOutput = stringBuffer.toString();
+                if (StrUtil.isNotBlank(infoOutput)) {
+                    logger.info(infoOutput);
+                }
             } catch (Exception e) {
                 logger.error(e.getMessage(), e);
             } finally {
@@ -195,7 +200,10 @@ public class ShellUtils {
                     stringBuffer.append(line);
                     stringBuffer.append(System.lineSeparator());
                 }
-                logger.error(stringBuffer.toString());
+                String errorOutput = stringBuffer.toString();
+                if (StrUtil.isNotBlank(errorOutput)) {
+                    logger.error(errorOutput);
+                }
             } catch (Exception e) {
                 logger.error(e.getMessage(), e);
             } finally {
